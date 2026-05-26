@@ -1,0 +1,2196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Obelisk</title>
+<style>
+  :root {
+    --bg: #0e1116;
+    --panel: #161b22;
+    --panel-2: #1f262f;
+    --border: #2a313c;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #4f8cff;
+    --accent-2: #79b8ff;
+    --danger: #f85149;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden;
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+  }
+  #canvas-container { position: fixed; left: 0; top: 0; right: 340px; bottom: 130px; }
+  #canvas-container canvas { display: block; }
+
+  #palette {
+    position: fixed; bottom: 0; left: 0; right: 340px; height: 130px;
+    background: var(--panel); border-top: 1px solid var(--border);
+    display: flex; flex-direction: column; z-index: 5;
+  }
+  #palette-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 14px; border-bottom: 1px solid var(--border);
+  }
+  #palette-header h2 {
+    margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  #palette-strip {
+    flex: 1; overflow-x: auto; overflow-y: hidden;
+    display: flex; gap: 8px; padding: 10px 14px;
+    align-items: center;
+  }
+  .thing-chip {
+    flex: 0 0 auto;
+    display: flex; align-items: center; gap: 8px;
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 12px;
+    font-size: 13px; cursor: grab;
+    user-select: none;
+    max-width: 180px;
+    white-space: nowrap;
+    touch-action: none;
+  }
+  .thing-chip:hover { border-color: var(--accent); }
+  .thing-chip:active { cursor: grabbing; }
+  .thing-chip.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .thing-chip.attached { opacity: 0.7; }
+  .thing-chip .icon { width: 14px; height: 14px; flex-shrink: 0; }
+  .thing-chip .icon.circle { border-radius: 50%; }
+  .thing-chip .icon.hexagon { clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); }
+  .thing-chip .label { overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+  .palette-empty { color: var(--muted); font-style: italic; padding: 0 8px; }
+
+  #sidebar {
+    position: fixed; right: 0; top: 0; width: 340px; height: 100%;
+    background: var(--panel); border-left: 1px solid var(--border);
+    display: flex; flex-direction: column;
+  }
+  #sidebar header {
+    padding: 14px 16px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  #sidebar header h1 {
+    margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.04em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  #sidebar .body { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+  #sidebar .empty { color: var(--muted); font-style: italic; padding-top: 40px; text-align: center; }
+  #sidebar label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  #sidebar input, #sidebar textarea {
+    width: 100%; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 8px 10px; font: inherit; font-size: 14px; resize: vertical;
+  }
+  #sidebar input:focus, #sidebar textarea:focus { outline: none; border-color: var(--accent); }
+  #sidebar textarea { min-height: 200px; }
+  #sidebar .meta { font-size: 11px; color: var(--muted); }
+  #sidebar footer {
+    padding: 12px 16px; border-top: 1px solid var(--border);
+    display: flex; gap: 8px;
+  }
+  button {
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 7px 12px; font: inherit; font-size: 13px; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: white; }
+  button.primary:hover { background: var(--accent-2); border-color: var(--accent-2); }
+  button.danger { color: var(--danger); }
+  button.danger:hover { border-color: var(--danger); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .swatches { display: flex; gap: 6px; flex-wrap: wrap; }
+  .swatch {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 2px solid transparent; cursor: pointer;
+    transition: transform 80ms ease;
+  }
+  .swatch:hover { transform: scale(1.1); }
+  .swatch.active { border-color: var(--text); }
+
+  .bucket-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 3px 10px 3px 6px;
+    font-size: 12px; cursor: pointer;
+  }
+  .bucket-pill .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .bucket-pill:hover { border-color: var(--accent); }
+
+  #toolbar {
+    position: fixed; top: 12px; left: 12px; z-index: 10;
+    display: flex; gap: 6px;
+    background: rgba(22,27,34,0.85); backdrop-filter: blur(8px);
+    border: 1px solid var(--border); border-radius: 8px; padding: 6px;
+  }
+  #status {
+    position: fixed; bottom: 140px; left: 12px; z-index: 10;
+    color: var(--muted); font-size: 11px;
+    background: rgba(22,27,34,0.7); backdrop-filter: blur(8px);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 4px 8px;
+    pointer-events: none;
+  }
+  kbd {
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 3px; padding: 1px 4px; font-size: 10px;
+    font-family: ui-monospace, monospace;
+  }
+</style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+
+  <div id="toolbar">
+    <button id="add-card-btn" class="primary">+ Card</button>
+    <button id="add-bucket-btn">+ Bucket</button>
+    <button id="focus-btn" title="Frame selected">Focus</button>
+    <button id="reset-view-btn" title="Reset camera">Reset view</button>
+    <button id="save-json-btn" title="Download current state as JSON">Save .json</button>
+    <button id="load-json-btn" title="Replace current state with a JSON file">Load .json</button>
+    <input type="file" id="load-json-input" accept=".json,application/json" style="display:none;" />
+  </div>
+
+  <div id="status">
+    <kbd>L-drag</kbd> orbit · <kbd>M-drag</kbd> pan · <kbd>scroll</kbd> zoom · <kbd>R-hold + WASD</kbd> fly (<kbd>space/ctrl</kbd> up/down, <kbd>shift</kbd> sprint) · <kbd>click</kbd> select · <kbd>shift+drag</kbd> move · <kbd>del</kbd> delete
+  </div>
+
+  <div id="palette">
+    <div id="palette-header">
+      <h2>Things</h2>
+      <button id="add-thing-btn" class="primary">+ Thing</button>
+    </div>
+    <div id="palette-strip"></div>
+  </div>
+
+  <aside id="sidebar">
+    <header>
+      <h1 id="sidebar-title">Selection</h1>
+    </header>
+    <div class="body" id="sidebar-body">
+      <div class="empty">Nothing selected.<br/>Click a card or bucket to edit it.</div>
+    </div>
+    <footer id="sidebar-footer" style="display:none;">
+      <button id="delete-btn" class="danger">Delete</button>
+    </footer>
+  </aside>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ============================================================
+// Scene / camera / renderer
+// ============================================================
+const container = document.getElementById('canvas-container');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0e1116);
+scene.fog = new THREE.Fog(0x0e1116, 60, 240);
+
+const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 5000);
+const DEFAULT_CAM_POS = new THREE.Vector3(8, 8, 14);
+const DEFAULT_CAM_TARGET = new THREE.Vector3(0, 1.5, 0);
+camera.position.copy(DEFAULT_CAM_POS);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+container.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.target.copy(DEFAULT_CAM_TARGET);
+controls.screenSpacePanning = true;
+controls.mouseButtons = {
+  LEFT: THREE.MOUSE.ROTATE,
+  MIDDLE: THREE.MOUSE.PAN,
+  RIGHT: null, // reserved for FPS-fly (see FPS navigation section)
+};
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+const sun = new THREE.DirectionalLight(0xffffff, 0.4);
+sun.position.set(10, 20, 10);
+scene.add(sun);
+
+// ============================================================
+// Infinite ground grid (shader on a large plane)
+// ============================================================
+const gridGeo = new THREE.PlaneGeometry(2000, 2000);
+gridGeo.rotateX(-Math.PI / 2);
+const gridMat = new THREE.ShaderMaterial({
+  transparent: true,
+  side: THREE.DoubleSide,
+  uniforms: {
+    uMinor: { value: new THREE.Color(0x1c2330) },
+    uMajor: { value: new THREE.Color(0x2c3a52) },
+    uAxisX: { value: new THREE.Color(0x6b3a3a) },
+    uAxisZ: { value: new THREE.Color(0x3a5a6b) },
+    uMinorStep: { value: 1.0 },
+    uMajorStep: { value: 10.0 },
+    uFadeNear: { value: 30.0 },
+    uFadeFar: { value: 200.0 },
+  },
+  vertexShader: `
+    varying vec3 vWorld;
+    void main() {
+      vec4 wp = modelMatrix * vec4(position, 1.0);
+      vWorld = wp.xyz;
+      gl_Position = projectionMatrix * viewMatrix * wp;
+    }
+  `,
+  fragmentShader: `
+    precision highp float;
+    varying vec3 vWorld;
+    uniform vec3 uMinor, uMajor, uAxisX, uAxisZ;
+    uniform float uMinorStep, uMajorStep, uFadeNear, uFadeFar;
+
+    float gridLine(vec2 p, float step) {
+      vec2 g = abs(fract(p / step - 0.5) - 0.5) / fwidth(p / step);
+      float l = min(g.x, g.y);
+      return 1.0 - min(l, 1.0);
+    }
+    float axisLine(float c) {
+      float w = fwidth(c);
+      return 1.0 - smoothstep(0.0, w * 1.5, abs(c));
+    }
+    void main() {
+      vec2 p = vWorld.xz;
+      float minor = gridLine(p, uMinorStep);
+      float major = gridLine(p, uMajorStep);
+      float ax2 = axisLine(vWorld.z);
+      float az2 = axisLine(vWorld.x);
+
+      vec3 col = uMinor * minor;
+      col = mix(col, uMajor, major);
+      col = mix(col, uAxisX, ax2 * 0.9);
+      col = mix(col, uAxisZ, az2 * 0.9);
+
+      float alpha = max(max(minor * 0.5, major), max(ax2, az2));
+      float dist = length(vWorld.xz - cameraPosition.xz);
+      float fade = 1.0 - smoothstep(uFadeNear, uFadeFar, dist);
+      alpha *= fade;
+
+      if (alpha < 0.005) discard;
+      gl_FragColor = vec4(col, alpha);
+    }
+  `,
+});
+const grid = new THREE.Mesh(gridGeo, gridMat);
+grid.renderOrder = -2;
+scene.add(grid);
+
+// ============================================================
+// Selection state (tagged union)
+// ============================================================
+let selection = null; // { type: 'card' | 'bucket', id }
+const isSelected = (type, id) => selection && selection.type === type && selection.id === id;
+
+// ============================================================
+// Cards
+// ============================================================
+const CARD_W = 3.2;
+const CARD_H = 1.8;
+const cards = new Map(); // id -> { id, title, description, position:[x,y,z], bucketId, mesh, canvas, texture }
+
+function makeCardCanvas() {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 288;
+  return c;
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y,     x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x,     y + h, r);
+  ctx.arcTo(x,     y + h, x,     y,     r);
+  ctx.arcTo(x,     y,     x + w, y,     r);
+  ctx.closePath();
+}
+
+function wrapText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {
+  const words = String(text).split(/\s+/);
+  let line = '';
+  const lines = [];
+  for (const word of words) {
+    const test = line ? line + ' ' + word : word;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = test;
+    }
+    if (lines.length >= maxLines) break;
+  }
+  if (line && lines.length < maxLines) lines.push(line);
+  if (lines.length === maxLines) {
+    let last = lines[maxLines - 1];
+    const usedWords = lines.join(' ').split(/\s+/).length;
+    if (usedWords < words.length) {
+      while (ctx.measureText(last + '…').width > maxWidth && last.length > 0) last = last.slice(0, -1);
+      lines[maxLines - 1] = last + '…';
+    }
+  }
+  lines.forEach((l, i) => ctx.fillText(l, x, y + i * lineHeight));
+}
+
+function drawCard(card, { selected = isSelected('card', card.id), accentOverride } = {}) {
+  const ctx = card.canvas.getContext('2d');
+  const w = card.canvas.width, h = card.canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  // accent precedence: explicit override > assigned bucket color > none
+  const accent = accentOverride !== undefined
+    ? accentOverride
+    : (card.bucketId ? getBucketColor(card.bucketId) : null);
+
+  // background
+  ctx.fillStyle = selected ? '#1d2a44' : '#161b22';
+  roundRect(ctx, 4, 4, w - 8, h - 8, 24);
+  ctx.fill();
+
+  // border (selection > accent > default)
+  ctx.lineWidth = selected ? 6 : 3;
+  ctx.strokeStyle = selected ? '#79b8ff' : (accent || '#2a313c');
+  roundRect(ctx, 4, 4, w - 8, h - 8, 24);
+  ctx.stroke();
+
+  // accent bar
+  ctx.fillStyle = accent || (selected ? '#4f8cff' : '#3a4658');
+  roundRect(ctx, 20, 24, 8, h - 48, 4);
+  ctx.fill();
+
+  // title text
+  ctx.fillStyle = '#e6edf3';
+  ctx.font = '600 36px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif';
+  ctx.textBaseline = 'top';
+  wrapText(ctx, card.title || 'Untitled', 48, 36, w - 80, 44, 4);
+
+  card.texture.needsUpdate = true;
+}
+
+function createCardMesh(card) {
+  const canvas = makeCardCanvas();
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const mat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide });
+  const geo = new THREE.PlaneGeometry(CARD_W, CARD_H);
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.fromArray(card.position);
+  mesh.userData.cardId = card.id;
+  card.canvas = canvas;
+  card.texture = texture;
+  card.mesh = mesh;
+  drawCard(card);
+  return mesh;
+}
+
+function addCard({ title = 'New card', description = '', position, bucketId } = {}) {
+  if (!position) {
+    const forward = new THREE.Vector3();
+    camera.getWorldDirection(forward);
+    const p = new THREE.Vector3().copy(controls.target).add(forward.multiplyScalar(6));
+    p.x += (Math.random() - 0.5) * 4;
+    p.z += (Math.random() - 0.5) * 4;
+    position = [p.x, CARD_ALTITUDE, p.z];
+  } else {
+    position = [position[0], CARD_ALTITUDE, position[2]];
+  }
+  const id = crypto.randomUUID();
+  const card = { id, title, description, position, bucketId: bucketId ?? null };
+  if (card.bucketId === null) {
+    const inB = findBucketContaining(position);
+    if (inB) card.bucketId = inB.id;
+  }
+  scene.add(createCardMesh(card));
+  cards.set(id, card);
+  if (card.bucketId && buckets.has(card.bucketId)) refreshBucket(buckets.get(card.bucketId));
+  select('card', id);
+  save();
+  return card;
+}
+
+function deleteCard(id) {
+  const card = cards.get(id);
+  if (!card) return;
+  const oldBucketId = card.bucketId;
+  // orphan attached things (they keep their last position, lose attachment)
+  let orphanedThings = false;
+  for (const t of things.values()) {
+    if (t.cardId === id) { t.cardId = null; orphanedThings = true; }
+  }
+  scene.remove(card.mesh);
+  card.mesh.geometry.dispose();
+  card.mesh.material.map?.dispose();
+  card.mesh.material.dispose();
+  cards.delete(id);
+  if (oldBucketId && buckets.has(oldBucketId)) refreshBucket(buckets.get(oldBucketId));
+  if (isSelected('card', id)) select(null);
+  if (orphanedThings) updatePalette();
+  save();
+}
+
+// ============================================================
+// Buckets (3D ringed zones with vertical fading wall halo)
+// ============================================================
+const BUCKET_HEIGHT = 4;
+const BUCKET_DEFAULT_RADIUS = 5;
+const BUCKET_PALETTE = ['#4f8cff', '#ff6b9d', '#7ad9a8', '#f7b955', '#b794f4', '#5cd4f0', '#ff8a65'];
+const buckets = new Map();
+
+const wallVertexShader = `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+const wallFragmentShader = `
+  precision highp float;
+  uniform vec3 uColor;
+  uniform float uOpacity;
+  varying vec2 vUv;
+  void main() {
+    // uv.y = 0 at bottom, 1 at top — fade out toward top
+    float v = clamp(vUv.y, 0.0, 1.0);
+    float a = pow(1.0 - v, 1.7) * uOpacity;
+    // gentle rim brightening at base
+    float base = smoothstep(0.0, 0.08, v);
+    vec3 col = mix(uColor * 1.4, uColor, base);
+    gl_FragColor = vec4(col, a);
+  }
+`;
+
+function makeBucketLabelCanvas() {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 96;
+  return c;
+}
+
+function drawBucketLabel(bucket, { selected = isSelected('bucket', bucket.id) } = {}) {
+  const { labelCanvas: canvas, name, color } = bucket;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = 'rgba(14,17,22,0.88)';
+  roundRect(ctx, 0, 0, w, h, 28);
+  ctx.fill();
+  ctx.lineWidth = selected ? 5 : 3;
+  ctx.strokeStyle = color;
+  roundRect(ctx, 2, 2, w - 4, h - 4, 26);
+  ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(38, h / 2, 12, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#e6edf3';
+  ctx.font = '600 36px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif';
+  ctx.textBaseline = 'middle';
+  let text = name || 'Untitled bucket';
+  let suffix = '';
+  while (ctx.measureText(text + suffix).width > w - 80 && text.length > 0) {
+    text = text.slice(0, -1);
+    suffix = '…';
+  }
+  ctx.fillText(text + suffix, 60, h / 2 + 2);
+  bucket.labelTexture.needsUpdate = true;
+}
+
+function createBucketObjects(bucket) {
+  const group = new THREE.Group();
+  group.position.fromArray(bucket.position);
+
+  const wallGeo = new THREE.CylinderGeometry(bucket.radius, bucket.radius, BUCKET_HEIGHT, 64, 1, true);
+  const wallMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uColor: { value: new THREE.Color(bucket.color) },
+      uOpacity: { value: 0.45 },
+    },
+    vertexShader: wallVertexShader,
+    fragmentShader: wallFragmentShader,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  const wall = new THREE.Mesh(wallGeo, wallMat);
+  wall.position.y = BUCKET_HEIGHT / 2;
+  wall.renderOrder = -1;
+  group.add(wall);
+
+  const ringGeo = new THREE.TorusGeometry(bucket.radius, 0.06, 8, 96);
+  ringGeo.rotateX(Math.PI / 2);
+  const ringMat = new THREE.MeshBasicMaterial({ color: bucket.color });
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.position.y = 0.02;
+  ring.userData.bucketId = bucket.id;
+  group.add(ring);
+
+  const labelCanvas = makeBucketLabelCanvas();
+  const labelTexture = new THREE.CanvasTexture(labelCanvas);
+  labelTexture.colorSpace = THREE.SRGBColorSpace;
+  labelTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const labelMat = new THREE.MeshBasicMaterial({ map: labelTexture, transparent: true, side: THREE.DoubleSide });
+  const labelGeo = new THREE.PlaneGeometry(3.2, 0.6);
+  const label = new THREE.Mesh(labelGeo, labelMat);
+  label.position.y = BUCKET_HEIGHT + 0.8;
+  label.userData.bucketId = bucket.id;
+  group.add(label);
+
+  bucket.group = group;
+  bucket.wall = wall;
+  bucket.wallMat = wallMat;
+  bucket.ring = ring;
+  bucket.ringMat = ringMat;
+  bucket.label = label;
+  bucket.labelMat = labelMat;
+  bucket.labelCanvas = labelCanvas;
+  bucket.labelTexture = labelTexture;
+  drawBucketLabel(bucket);
+  return group;
+}
+
+function addBucket({ name = 'New bucket', position, radius = BUCKET_DEFAULT_RADIUS, color, parentId = null } = {}) {
+  if (parentId && !buckets.has(parentId)) parentId = null;
+  if (parentId && depthOf(parentId) + 1 > MAX_NEST_DEPTH) parentId = null;
+  if (!position) {
+    if (parentId) {
+      const parent = buckets.get(parentId);
+      position = [parent.position[0], 0, parent.position[2]];
+    } else {
+      const forward = new THREE.Vector3();
+      camera.getWorldDirection(forward);
+      forward.y = 0; forward.normalize();
+      const p = new THREE.Vector3().copy(controls.target).add(forward.multiplyScalar(8));
+      p.x += (Math.random() - 0.5) * 6;
+      p.z += (Math.random() - 0.5) * 6;
+      position = [p.x, 0, p.z];
+    }
+  } else {
+    position = [position[0], 0, position[2]];
+  }
+  if (!color) color = BUCKET_PALETTE[buckets.size % BUCKET_PALETTE.length];
+  const id = crypto.randomUUID();
+  const bucket = { id, name, position, baseRadius: radius, radius, color, parentId };
+  scene.add(createBucketObjects(bucket));
+  buckets.set(id, bucket);
+  if (parentId && buckets.has(parentId)) refreshBucket(buckets.get(parentId));
+  select('bucket', id);
+  save();
+  return bucket;
+}
+
+function deleteBucket(id) {
+  const bucket = buckets.get(id);
+  if (!bucket) return;
+  const oldParentId = bucket.parentId;
+  // orphan direct card children — they keep their positions, lose membership
+  for (const c of cards.values()) {
+    if (c.bucketId === id) {
+      c.bucketId = null;
+      drawCard(c);
+    }
+  }
+  // orphan direct bucket children — they become top-level (or children of grandparent? top-level is simpler)
+  for (const b of buckets.values()) {
+    if (b.parentId === id) b.parentId = null;
+  }
+  scene.remove(bucket.group);
+  bucket.wall.geometry.dispose();
+  bucket.wallMat.dispose();
+  bucket.ring.geometry.dispose();
+  bucket.ringMat.dispose();
+  bucket.label.geometry.dispose();
+  bucket.labelMat.dispose();
+  bucket.labelTexture.dispose();
+  buckets.delete(id);
+  if (isSelected('bucket', id)) select(null);
+  if (oldParentId && buckets.has(oldParentId)) refreshBucket(buckets.get(oldParentId));
+  save();
+}
+
+let hoveredBucketId = null;  // drop target while dragging
+let pushedBucketId = null;   // forcefield: home bucket being pushed against
+
+function applyBucketVisualState(bucket) {
+  const sel = isSelected('bucket', bucket.id);
+  const hov = hoveredBucketId === bucket.id;
+  const pushed = pushedBucketId === bucket.id;
+  let opacity = 0.45;
+  if (pushed) opacity = 1.0;
+  else if (hov) opacity = 0.85;
+  else if (sel) opacity = 0.7;
+  bucket.wallMat.uniforms.uOpacity.value = opacity;
+  const intensity = (pushed || hov) ? 1.5 : 1.0;
+  bucket.ringMat.color.set(bucket.color).multiplyScalar(intensity);
+  drawBucketLabel(bucket, { selected: sel || hov || pushed });
+}
+
+// ---------- Bucket auto-sizing & orbit layout ----------
+const CARD_ALTITUDE = 2.0;
+const FORCEFIELD_WIDTH = 2.0;  // how far past the boundary before drag breaks free
+const ORBIT_MARGIN = 0.6;      // extra spacing between members on the orbit
+const CARD_HALF_SIZE = 1.7;    // approximate half-width of a card on its orbit
+
+function memberHalfSize(member) {
+  return cards.has(member.id) ? CARD_HALF_SIZE : member.radius;
+}
+
+function requiredBucketRadius(bucket) {
+  const cardChildren = membersOf(bucket.id);
+  const bucketChildren = bucketChildrenOf(bucket.id);
+  const all = [...bucketChildren, ...cardChildren];
+  const n = all.length;
+  if (n === 0) return bucket.baseRadius;
+  let maxHalf = 0;
+  for (const m of all) maxHalf = Math.max(maxHalf, memberHalfSize(m));
+  let orbitR;
+  if (n === 1) orbitR = 0;
+  else orbitR = (maxHalf + ORBIT_MARGIN / 2) / Math.sin(Math.PI / n);
+  return Math.max(bucket.baseRadius, orbitR + maxHalf + ORBIT_MARGIN);
+}
+
+function rebuildBucketGeometry(bucket) {
+  bucket.wall.geometry.dispose();
+  bucket.ring.geometry.dispose();
+  bucket.wall.geometry = new THREE.CylinderGeometry(bucket.radius, bucket.radius, BUCKET_HEIGHT, 64, 1, true);
+  const ringGeo = new THREE.TorusGeometry(bucket.radius, 0.06, 8, 96);
+  ringGeo.rotateX(Math.PI / 2);
+  bucket.ring.geometry = ringGeo;
+}
+
+function recomputeBucketRadius(bucket) {
+  const target = requiredBucketRadius(bucket);
+  if (Math.abs(target - bucket.radius) > 0.05) {
+    bucket.radius = target;
+    rebuildBucketGeometry(bucket);
+  }
+}
+
+function layoutBucketMembers(bucket) {
+  const cardChildren = membersOf(bucket.id);
+  const bucketChildren = bucketChildrenOf(bucket.id);
+  const all = [...bucketChildren, ...cardChildren];
+  const n = all.length;
+  if (n === 0) return;
+  let maxHalf = 0;
+  for (const m of all) maxHalf = Math.max(maxHalf, memberHalfSize(m));
+  const orbitR = n === 1 ? 0 : Math.max(0, bucket.radius - maxHalf - ORBIT_MARGIN);
+  for (let i = 0; i < n; i++) {
+    const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+    const x = bucket.position[0] + Math.cos(angle) * orbitR;
+    const z = bucket.position[2] + Math.sin(angle) * orbitR;
+    const m = all[i];
+    if (cards.has(m.id)) {
+      m.mesh.position.set(x, CARD_ALTITUDE, z);
+      m.position = [x, CARD_ALTITUDE, z];
+    } else {
+      const dx = x - m.position[0];
+      const dz = z - m.position[2];
+      if (dx * dx + dz * dz > 1e-6) translateBucketTree(m, new THREE.Vector3(dx, 0, dz));
+    }
+  }
+}
+
+function refreshBucket(bucket) {
+  recomputeBucketRadius(bucket);
+  layoutBucketMembers(bucket);
+  if (bucket.parentId && buckets.has(bucket.parentId)) {
+    refreshBucket(buckets.get(bucket.parentId));
+  }
+}
+
+function refreshAll() {
+  // bottom-up: deepest first so each parent sees its children's final radii
+  const sorted = [...buckets.values()].sort((a, b) => depthOf(b.id) - depthOf(a.id));
+  for (const b of sorted) {
+    recomputeBucketRadius(b);
+    layoutBucketMembers(b);
+  }
+}
+
+function getBucketColor(bucketId) {
+  return buckets.get(bucketId)?.color || null;
+}
+
+const MAX_NEST_DEPTH = Infinity; // no depth cap — only cycles are prevented
+
+function depthOf(bucketId) {
+  let d = 0;
+  let id = bucketId;
+  while (id) {
+    const b = buckets.get(id);
+    if (!b || !b.parentId) break;
+    d++;
+    id = b.parentId;
+    if (d > 1000) break; // safety against pathological cycles
+  }
+  return d;
+}
+
+function subtreeDepth(bucketId) {
+  let max = 0;
+  for (const b of buckets.values()) {
+    if (b.parentId === bucketId) max = Math.max(max, 1 + subtreeDepth(b.id));
+  }
+  return max;
+}
+
+function descendantSet(rootId, includeSelf = false) {
+  const set = new Set();
+  if (includeSelf) set.add(rootId);
+  function walk(id) {
+    for (const b of buckets.values()) {
+      if (b.parentId === id) { set.add(b.id); walk(b.id); }
+    }
+  }
+  walk(rootId);
+  return set;
+}
+
+function canNest(dropped, target) {
+  if (!target) return true; // top-level always OK
+  if (target.id === dropped.id) return false;
+  let p = target.parentId;
+  while (p) {
+    if (p === dropped.id) return false; // would create a cycle
+    p = buckets.get(p)?.parentId;
+  }
+  return depthOf(target.id) + 1 + subtreeDepth(dropped.id) <= MAX_NEST_DEPTH;
+}
+
+function translateBucketTree(bucket, delta) {
+  bucket.group.position.add(delta);
+  bucket.position = [bucket.group.position.x, 0, bucket.group.position.z];
+  for (const c of cards.values()) {
+    if (c.bucketId === bucket.id) {
+      c.mesh.position.add(delta);
+      c.position = c.mesh.position.toArray();
+      // things attached to this card move with it too
+      for (const t of things.values()) {
+        if (t.cardId === c.id) {
+          t.mesh.position.add(delta);
+          t.position = t.mesh.position.toArray();
+        }
+      }
+    }
+  }
+  for (const b of buckets.values()) {
+    if (b.parentId === bucket.id) translateBucketTree(b, delta);
+  }
+}
+
+function findDeepestBucketContaining(x, z, excludeIds = null) {
+  let best = null;
+  let bestDepth = -1;
+  for (const b of buckets.values()) {
+    if (excludeIds && excludeIds.has(b.id)) continue;
+    const dx = x - b.position[0];
+    const dz = z - b.position[2];
+    if (dx * dx + dz * dz <= b.radius * b.radius) {
+      const d = depthOf(b.id);
+      if (d > bestDepth) { bestDepth = d; best = b; }
+    }
+  }
+  return best;
+}
+
+function findBucketContaining(position) {
+  return findDeepestBucketContaining(position[0], position[2], null);
+}
+
+function membersOf(bucketId) {
+  const out = [];
+  for (const c of cards.values()) if (c.bucketId === bucketId) out.push(c);
+  return out;
+}
+
+function bucketChildrenOf(bucketId) {
+  const out = [];
+  for (const b of buckets.values()) if (b.parentId === bucketId) out.push(b);
+  return out;
+}
+
+// ============================================================
+// Things (mini-card entities — people, systems, objects)
+// ============================================================
+const THING_W = 1.9;
+const THING_H = 0.8;
+const THING_ORBIT_R = 3.0; // distance from card center to its orbiting things
+const THING_TYPES = {
+  person: { label: 'Person', color: '#4f8cff', shape: 'circle' },
+  system: { label: 'System', color: '#f7b955', shape: 'square' },
+  object: { label: 'Object', color: '#7ad9a8', shape: 'hexagon' },
+};
+const things = new Map(); // id -> { id, title, description, type, position, cardId, mesh, canvas, texture }
+let hoveredCardId = null;  // card under cursor during a thing drag
+
+function makeThingCanvas() {
+  const c = document.createElement('canvas');
+  c.width = 384; c.height = 160;
+  return c;
+}
+
+function drawThingShape(ctx, x, y, size, shape) {
+  ctx.beginPath();
+  if (shape === 'circle') {
+    ctx.arc(x, y, size, 0, Math.PI * 2);
+  } else if (shape === 'square') {
+    ctx.rect(x - size, y - size, size * 2, size * 2);
+  } else { // hexagon
+    for (let i = 0; i < 6; i++) {
+      const a = Math.PI / 3 * i - Math.PI / 2;
+      const px = x + Math.cos(a) * size;
+      const py = y + Math.sin(a) * size;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+  }
+  ctx.fill();
+}
+
+function drawThing(thing, { selected = isSelected('thing', thing.id) } = {}) {
+  const ctx = thing.canvas.getContext('2d');
+  const w = thing.canvas.width, h = thing.canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  const type = THING_TYPES[thing.type] || THING_TYPES.person;
+
+  ctx.fillStyle = selected ? '#1d2a44' : '#161b22';
+  roundRect(ctx, 4, 4, w - 8, h - 8, 16);
+  ctx.fill();
+
+  ctx.lineWidth = selected ? 5 : 3;
+  ctx.strokeStyle = selected ? '#79b8ff' : type.color;
+  roundRect(ctx, 4, 4, w - 8, h - 8, 16);
+  ctx.stroke();
+
+  ctx.fillStyle = type.color;
+  drawThingShape(ctx, 36, h / 2, 18, type.shape);
+
+  ctx.fillStyle = '#e6edf3';
+  ctx.font = '600 32px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif';
+  ctx.textBaseline = 'middle';
+  let text = thing.title || 'Untitled';
+  let suffix = '';
+  while (ctx.measureText(text + suffix).width > w - 90 && text.length > 0) {
+    text = text.slice(0, -1);
+    suffix = '…';
+  }
+  ctx.fillText(text + suffix, 72, h / 2 + 2);
+
+  thing.texture.needsUpdate = true;
+}
+
+function createThingMesh(thing) {
+  const canvas = makeThingCanvas();
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const mat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide });
+  const geo = new THREE.PlaneGeometry(THING_W, THING_H);
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.fromArray(thing.position);
+  mesh.userData.thingId = thing.id;
+  thing.canvas = canvas;
+  thing.texture = texture;
+  thing.mesh = mesh;
+  drawThing(thing);
+  return mesh;
+}
+
+function addThing({ title = 'New thing', description = '', type = 'person', position, cardId = null } = {}) {
+  if (!THING_TYPES[type]) type = 'person';
+  if (!position) {
+    const forward = new THREE.Vector3();
+    camera.getWorldDirection(forward);
+    const p = new THREE.Vector3().copy(controls.target).add(forward.multiplyScalar(5));
+    p.x += (Math.random() - 0.5) * 4;
+    p.z += (Math.random() - 0.5) * 4;
+    position = [p.x, CARD_ALTITUDE, p.z];
+  } else {
+    position = [position[0], CARD_ALTITUDE, position[2]];
+  }
+  if (cardId && !cards.has(cardId)) cardId = null;
+  const id = crypto.randomUUID();
+  const thing = { id, title, description, type, position, cardId };
+  scene.add(createThingMesh(thing));
+  things.set(id, thing);
+  if (cardId && cards.has(cardId)) layoutThingsAroundCard(cards.get(cardId));
+  select('thing', id);
+  save();
+  updatePalette();
+  return thing;
+}
+
+function deleteThing(id) {
+  const thing = things.get(id);
+  if (!thing) return;
+  const oldCardId = thing.cardId;
+  scene.remove(thing.mesh);
+  thing.mesh.geometry.dispose();
+  thing.mesh.material.map?.dispose();
+  thing.mesh.material.dispose();
+  things.delete(id);
+  if (oldCardId && cards.has(oldCardId)) layoutThingsAroundCard(cards.get(oldCardId));
+  if (isSelected('thing', id)) select(null);
+  save();
+  updatePalette();
+}
+
+function thingsAttachedTo(cardId) {
+  const out = [];
+  for (const t of things.values()) if (t.cardId === cardId) out.push(t);
+  return out;
+}
+
+function layoutThingsAroundCard(card) {
+  const attached = thingsAttachedTo(card.id);
+  const n = attached.length;
+  if (n === 0) return;
+  for (let i = 0; i < n; i++) {
+    const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+    const x = card.position[0] + Math.cos(angle) * THING_ORBIT_R;
+    const z = card.position[2] + Math.sin(angle) * THING_ORBIT_R;
+    attached[i].mesh.position.set(x, CARD_ALTITUDE, z);
+    attached[i].position = [x, CARD_ALTITUDE, z];
+  }
+}
+
+// ============================================================
+// Selection
+// ============================================================
+function select(type, id = null) {
+  const prev = selection;
+  selection = (type && id) ? { type, id } : null;
+  if (prev) {
+    if (prev.type === 'card') {
+      const c = cards.get(prev.id);
+      if (c) drawCard(c);
+    } else if (prev.type === 'bucket') {
+      const b = buckets.get(prev.id);
+      if (b) applyBucketVisualState(b);
+    } else if (prev.type === 'thing') {
+      const t = things.get(prev.id);
+      if (t) drawThing(t);
+    }
+  }
+  if (selection) {
+    if (selection.type === 'card') {
+      const c = cards.get(selection.id);
+      if (c) drawCard(c);
+    } else if (selection.type === 'bucket') {
+      const b = buckets.get(selection.id);
+      if (b) applyBucketVisualState(b);
+    } else if (selection.type === 'thing') {
+      const t = things.get(selection.id);
+      if (t) drawThing(t);
+    }
+  }
+  renderSidebar();
+  updatePaletteSelection();
+}
+
+// ============================================================
+// Billboarding (cards + bucket labels face camera)
+// ============================================================
+const tmpVec = new THREE.Vector3();
+function billboardAll() {
+  tmpVec.copy(camera.position);
+  for (const card of cards.values()) card.mesh.lookAt(tmpVec);
+  for (const bucket of buckets.values()) bucket.label.lookAt(tmpVec);
+  for (const thing of things.values()) thing.mesh.lookAt(tmpVec);
+}
+
+// ============================================================
+// Picking & dragging
+// ============================================================
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+const dragPlane = new THREE.Plane();
+const dragOffset = new THREE.Vector3();
+const dragPoint = new THREE.Vector3();
+let dragging = null; // { type:'card'|'bucket', obj }
+let pointerDownPos = null;
+let pointerMoved = false;
+
+function setPointer(ev) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+}
+
+function pickAny(ev) {
+  setPointer(ev);
+  raycaster.setFromCamera(pointer, camera);
+  const targets = [];
+  for (const c of cards.values()) targets.push(c.mesh);
+  for (const b of buckets.values()) { targets.push(b.ring); targets.push(b.label); }
+  for (const t of things.values()) targets.push(t.mesh);
+  const hits = raycaster.intersectObjects(targets, false);
+  if (!hits.length) return null;
+  const o = hits[0].object;
+  if (o.userData.cardId) return { type: 'card', id: o.userData.cardId };
+  if (o.userData.bucketId) return { type: 'bucket', id: o.userData.bucketId };
+  if (o.userData.thingId) return { type: 'thing', id: o.userData.thingId };
+  return null;
+}
+
+renderer.domElement.addEventListener('pointerdown', (ev) => {
+  if (ev.button !== 0) return;
+  pointerDownPos = { x: ev.clientX, y: ev.clientY };
+  pointerMoved = false;
+  if (!ev.shiftKey) return;
+  const hit = pickAny(ev);
+  if (!hit) return;
+
+  if (hit.type === 'card') {
+    const card = cards.get(hit.id);
+    dragging = { type: 'card', obj: card };
+    controls.enabled = false;
+    hoveredBucketId = null;
+    pushedBucketId = null;
+    dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), card.mesh.position);
+    raycaster.setFromCamera(pointer, camera);
+    raycaster.ray.intersectPlane(dragPlane, dragPoint);
+    dragOffset.copy(card.mesh.position).sub(dragPoint);
+    renderer.domElement.setPointerCapture(ev.pointerId);
+  } else if (hit.type === 'bucket') {
+    const bucket = buckets.get(hit.id);
+    dragging = { type: 'bucket', obj: bucket };
+    controls.enabled = false;
+    hoveredBucketId = null;
+    pushedBucketId = null;
+    dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), bucket.group.position);
+    raycaster.setFromCamera(pointer, camera);
+    raycaster.ray.intersectPlane(dragPlane, dragPoint);
+    dragOffset.copy(bucket.group.position).sub(dragPoint);
+    renderer.domElement.setPointerCapture(ev.pointerId);
+  } else if (hit.type === 'thing') {
+    const thing = things.get(hit.id);
+    dragging = { type: 'thing', obj: thing, startCardId: thing.cardId, startPos: thing.position.slice() };
+    controls.enabled = false;
+    hoveredCardId = null;
+    // detach immediately so it follows freely; re-attached on drop
+    if (thing.cardId) {
+      const oldCard = cards.get(thing.cardId);
+      thing.cardId = null;
+      if (oldCard) layoutThingsAroundCard(oldCard);
+    }
+    dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), thing.mesh.position);
+    raycaster.setFromCamera(pointer, camera);
+    raycaster.ray.intersectPlane(dragPlane, dragPoint);
+    dragOffset.copy(thing.mesh.position).sub(dragPoint);
+    renderer.domElement.setPointerCapture(ev.pointerId);
+  }
+});
+
+renderer.domElement.addEventListener('pointermove', (ev) => {
+  if (pointerDownPos) {
+    const dx = ev.clientX - pointerDownPos.x;
+    const dy = ev.clientY - pointerDownPos.y;
+    if (dx * dx + dy * dy > 9) pointerMoved = true;
+  }
+  if (!dragging) return;
+  setPointer(ev);
+  raycaster.setFromCamera(pointer, camera);
+  if (!raycaster.ray.intersectPlane(dragPlane, dragPoint)) return;
+
+  if (dragging.type === 'card') {
+    const card = dragging.obj;
+    const target = new THREE.Vector3().copy(dragPoint).add(dragOffset);
+
+    // forcefield: if card is currently a bucket member and target is outside, apply resistance
+    let newPushed = null;
+    if (card.bucketId && buckets.has(card.bucketId)) {
+      const home = buckets.get(card.bucketId);
+      const dx = target.x - home.position[0];
+      const dz = target.z - home.position[2];
+      const dist = Math.hypot(dx, dz);
+      if (dist > home.radius) {
+        newPushed = home.id;
+        const excess = dist - home.radius;
+        const t = Math.min(excess / FORCEFIELD_WIDTH, 1.0);
+        const ease = t * t * (3 - 2 * t); // smoothstep
+        const inv = 1 / dist;
+        const bx = home.position[0] + dx * inv * home.radius;
+        const bz = home.position[2] + dz * inv * home.radius;
+        target.x = bx + (target.x - bx) * ease;
+        target.z = bz + (target.z - bz) * ease;
+      }
+    }
+    if (newPushed !== pushedBucketId) {
+      const prev = pushedBucketId;
+      pushedBucketId = newPushed;
+      if (prev && buckets.has(prev)) applyBucketVisualState(buckets.get(prev));
+      if (newPushed && buckets.has(newPushed)) applyBucketVisualState(buckets.get(newPushed));
+    }
+
+    const oldCardX = card.mesh.position.x;
+    const oldCardZ = card.mesh.position.z;
+    card.mesh.position.copy(target);
+    card.position = card.mesh.position.toArray();
+    // translate any attached things by same delta
+    const cdx = card.mesh.position.x - oldCardX;
+    const cdz = card.mesh.position.z - oldCardZ;
+    if (cdx !== 0 || cdz !== 0) {
+      for (const t of things.values()) {
+        if (t.cardId === card.id) {
+          t.mesh.position.x += cdx;
+          t.mesh.position.z += cdz;
+          t.position = t.mesh.position.toArray();
+        }
+      }
+    }
+
+    // drop-target highlight based on actual (possibly dampened) position
+    const overBucket = findBucketContaining(card.position);
+    const newHover = overBucket ? overBucket.id : null;
+    if (newHover !== hoveredBucketId) {
+      const prevHover = hoveredBucketId;
+      hoveredBucketId = newHover;
+      if (prevHover && buckets.has(prevHover)) applyBucketVisualState(buckets.get(prevHover));
+      if (newHover && buckets.has(newHover)) applyBucketVisualState(buckets.get(newHover));
+      const previewColor = newHover ? buckets.get(newHover).color : null;
+      drawCard(card, { selected: isSelected('card', card.id), accentOverride: previewColor });
+    }
+  } else if (dragging.type === 'bucket') {
+    const bucket = dragging.obj;
+    const oldPos = bucket.group.position.clone();
+    const target = new THREE.Vector3().copy(dragPoint).add(dragOffset);
+    target.y = 0;
+
+    // forcefield: if bucket has a parent and target is outside parent's ring, resist
+    let newPushed = null;
+    if (bucket.parentId && buckets.has(bucket.parentId)) {
+      const home = buckets.get(bucket.parentId);
+      const dx = target.x - home.position[0];
+      const dz = target.z - home.position[2];
+      const dist = Math.hypot(dx, dz);
+      if (dist > home.radius) {
+        newPushed = home.id;
+        const excess = dist - home.radius;
+        const t = Math.min(excess / FORCEFIELD_WIDTH, 1.0);
+        const ease = t * t * (3 - 2 * t);
+        const inv = 1 / dist;
+        const bx = home.position[0] + dx * inv * home.radius;
+        const bz = home.position[2] + dz * inv * home.radius;
+        target.x = bx + (target.x - bx) * ease;
+        target.z = bz + (target.z - bz) * ease;
+      }
+    }
+    if (newPushed !== pushedBucketId) {
+      const prev = pushedBucketId;
+      pushedBucketId = newPushed;
+      if (prev && buckets.has(prev)) applyBucketVisualState(buckets.get(prev));
+      if (newPushed && buckets.has(newPushed)) applyBucketVisualState(buckets.get(newPushed));
+    }
+
+    // translate bucket + entire descendant subtree by delta
+    const delta = new THREE.Vector3().subVectors(target, oldPos);
+    if (delta.lengthSq() > 0) translateBucketTree(bucket, delta);
+
+    // drop-target highlight (deepest valid nesting candidate, excluding self & descendants)
+    const excl = descendantSet(bucket.id, true);
+    let candidate = findDeepestBucketContaining(bucket.position[0], bucket.position[2], excl);
+    while (candidate && !canNest(bucket, candidate)) {
+      candidate = candidate.parentId ? buckets.get(candidate.parentId) : null;
+    }
+    const newHover = candidate ? candidate.id : null;
+    if (newHover !== hoveredBucketId) {
+      const prevHover = hoveredBucketId;
+      hoveredBucketId = newHover;
+      if (prevHover && buckets.has(prevHover)) applyBucketVisualState(buckets.get(prevHover));
+      if (newHover && buckets.has(newHover)) applyBucketVisualState(buckets.get(newHover));
+    }
+  } else if (dragging.type === 'thing') {
+    const thing = dragging.obj;
+    const target = new THREE.Vector3().copy(dragPoint).add(dragOffset);
+    target.y = CARD_ALTITUDE;
+    thing.mesh.position.copy(target);
+    thing.position = target.toArray();
+
+    // hover-card highlight (preview attach target)
+    const cardMeshes = [...cards.values()].map(c => c.mesh);
+    const hits = raycaster.intersectObjects(cardMeshes, false);
+    const newHover = hits.length ? hits[0].object.userData.cardId : null;
+    if (newHover !== hoveredCardId) {
+      const prevHover = hoveredCardId;
+      hoveredCardId = newHover;
+      if (prevHover && cards.has(prevHover)) drawCard(cards.get(prevHover));
+      if (newHover && cards.has(newHover)) {
+        const type = THING_TYPES[thing.type] || THING_TYPES.person;
+        drawCard(cards.get(newHover), { accentOverride: type.color });
+      }
+    }
+  }
+});
+
+renderer.domElement.addEventListener('pointerup', (ev) => {
+  if (ev.button !== 0) return;
+  if (dragging) {
+    if (dragging.type === 'card') {
+      const card = dragging.obj;
+      const inB = findBucketContaining(card.position);
+      const newBucketId = inB ? inB.id : null;
+      const oldBucketId = card.bucketId;
+      card.bucketId = newBucketId;
+
+      // clear all drag highlights
+      const prevHover = hoveredBucketId;
+      const prevPushed = pushedBucketId;
+      hoveredBucketId = null;
+      pushedBucketId = null;
+      if (prevHover && buckets.has(prevHover)) applyBucketVisualState(buckets.get(prevHover));
+      if (prevPushed && prevPushed !== prevHover && buckets.has(prevPushed)) applyBucketVisualState(buckets.get(prevPushed));
+
+      // re-layout affected buckets (snap card into orbit slot; regrow/shrink)
+      if (oldBucketId && oldBucketId !== newBucketId && buckets.has(oldBucketId)) refreshBucket(buckets.get(oldBucketId));
+      if (newBucketId && buckets.has(newBucketId)) refreshBucket(buckets.get(newBucketId));
+
+      drawCard(card);
+      if (isSelected('card', card.id)) renderSidebar();
+    } else if (dragging.type === 'bucket') {
+      const bucket = dragging.obj;
+      const excl = descendantSet(bucket.id, true);
+      let target = findDeepestBucketContaining(bucket.position[0], bucket.position[2], excl);
+      while (target && !canNest(bucket, target)) {
+        target = target.parentId ? buckets.get(target.parentId) : null;
+      }
+      const newParentId = target ? target.id : null;
+      const oldParentId = bucket.parentId;
+      bucket.parentId = newParentId;
+
+      // clear drag highlights
+      const prevHover = hoveredBucketId;
+      const prevPushed = pushedBucketId;
+      hoveredBucketId = null;
+      pushedBucketId = null;
+      if (prevHover && buckets.has(prevHover)) applyBucketVisualState(buckets.get(prevHover));
+      if (prevPushed && prevPushed !== prevHover && buckets.has(prevPushed)) applyBucketVisualState(buckets.get(prevPushed));
+
+      // re-layout affected ancestors (snap bucket into its parent's orbit; regrow/shrink)
+      if (oldParentId && oldParentId !== newParentId && buckets.has(oldParentId)) refreshBucket(buckets.get(oldParentId));
+      if (newParentId && buckets.has(newParentId)) refreshBucket(buckets.get(newParentId));
+      if (isSelected('bucket', bucket.id)) renderSidebar();
+    } else if (dragging.type === 'thing') {
+      const thing = dragging.obj;
+      // find card under cursor for attachment
+      setPointer(ev);
+      raycaster.setFromCamera(pointer, camera);
+      const cardMeshes = [...cards.values()].map(c => c.mesh);
+      const hits = raycaster.intersectObjects(cardMeshes, false);
+      const newCardId = hits.length ? hits[0].object.userData.cardId : null;
+      const oldCardId = dragging.startCardId;
+      thing.cardId = newCardId;
+
+      // clear hover highlight
+      const prevHover = hoveredCardId;
+      hoveredCardId = null;
+      if (prevHover && cards.has(prevHover)) drawCard(cards.get(prevHover));
+
+      // re-layout cards' orbits
+      if (oldCardId && oldCardId !== newCardId && cards.has(oldCardId)) layoutThingsAroundCard(cards.get(oldCardId));
+      if (newCardId && cards.has(newCardId)) layoutThingsAroundCard(cards.get(newCardId));
+
+      drawThing(thing);
+      if (isSelected('thing', thing.id)) renderSidebar();
+      updatePalette();
+    }
+    save();
+    dragging = null;
+    controls.enabled = true;
+    renderer.domElement.releasePointerCapture(ev.pointerId);
+    pointerDownPos = null;
+    return;
+  }
+  if (!pointerMoved) {
+    const hit = pickAny(ev);
+    if (hit) select(hit.type, hit.id);
+    else select(null);
+  }
+  pointerDownPos = null;
+});
+
+// ============================================================
+// FPS navigation (hold right-click + WASD)
+// ============================================================
+let fpsMode = false;
+let fpsYaw = 0, fpsPitch = 0;
+let fpsSpeed = 10;
+const fpsKeys = { w: false, a: false, s: false, d: false, space: false, ctrl: false, shift: false };
+
+renderer.domElement.addEventListener('contextmenu', (ev) => ev.preventDefault());
+
+function enterFPS() {
+  if (fpsMode || dragging) return;
+  fpsMode = true;
+  controls.enabled = false;
+  const dir = new THREE.Vector3();
+  camera.getWorldDirection(dir);
+  fpsYaw = Math.atan2(-dir.x, -dir.z);
+  fpsPitch = Math.asin(Math.max(-1, Math.min(1, dir.y)));
+  camera.rotation.order = 'YXZ';
+  camera.rotation.set(fpsPitch, fpsYaw, 0);
+  renderer.domElement.requestPointerLock?.();
+}
+
+function exitFPS() {
+  if (!fpsMode) return;
+  fpsMode = false;
+  if (document.pointerLockElement === renderer.domElement) document.exitPointerLock();
+  // re-anchor orbit target in front of camera
+  const dir = new THREE.Vector3();
+  camera.getWorldDirection(dir);
+  controls.target.copy(camera.position).add(dir.multiplyScalar(10));
+  controls.enabled = true;
+  // clear any held keys so movement doesn't leak after exit
+  for (const k of Object.keys(fpsKeys)) fpsKeys[k] = false;
+}
+
+// right-button press → FPS (capture phase to beat OrbitControls)
+renderer.domElement.addEventListener('pointerdown', (ev) => {
+  if (ev.button !== 2) return;
+  ev.preventDefault();
+  ev.stopImmediatePropagation();
+  enterFPS();
+}, true);
+
+renderer.domElement.addEventListener('pointerup', (ev) => {
+  if (ev.button !== 2) return;
+  ev.preventDefault();
+  exitFPS();
+}, true);
+
+document.addEventListener('pointerlockchange', () => {
+  if (fpsMode && document.pointerLockElement !== renderer.domElement) exitFPS();
+});
+
+document.addEventListener('mousemove', (ev) => {
+  if (!fpsMode) return;
+  const sens = 0.0025;
+  fpsYaw -= ev.movementX * sens;
+  fpsPitch -= ev.movementY * sens;
+  const limit = Math.PI / 2 - 0.001;
+  fpsPitch = Math.max(-limit, Math.min(limit, fpsPitch));
+  camera.rotation.set(fpsPitch, fpsYaw, 0);
+});
+
+function setFpsKey(keyLower, down) {
+  switch (keyLower) {
+    case 'w': case 'arrowup':    fpsKeys.w = down; return true;
+    case 'a': case 'arrowleft':  fpsKeys.a = down; return true;
+    case 's': case 'arrowdown':  fpsKeys.s = down; return true;
+    case 'd': case 'arrowright': fpsKeys.d = down; return true;
+    case ' ':                    fpsKeys.space = down; return true;
+    case 'control':              fpsKeys.ctrl = down; return true;
+    case 'shift':                fpsKeys.shift = down; return true;
+  }
+  return false;
+}
+
+document.addEventListener('keydown', (ev) => {
+  if (!fpsMode) return;
+  if (ev.target.matches('input, textarea')) return;
+  if (setFpsKey(ev.key.toLowerCase(), true)) ev.preventDefault();
+});
+document.addEventListener('keyup', (ev) => {
+  if (setFpsKey(ev.key.toLowerCase(), false)) ev.preventDefault();
+});
+
+renderer.domElement.addEventListener('wheel', (ev) => {
+  if (!fpsMode) return;
+  ev.preventDefault();
+  ev.stopImmediatePropagation();
+  fpsSpeed = Math.max(1, Math.min(80, fpsSpeed * (ev.deltaY < 0 ? 1.15 : 1 / 1.15)));
+}, { passive: false, capture: true });
+
+const _fpsForward = new THREE.Vector3();
+const _fpsRight = new THREE.Vector3();
+const _fpsUp = new THREE.Vector3(0, 1, 0);
+const _fpsMotion = new THREE.Vector3();
+
+function updateFPS(dt) {
+  if (!fpsMode) return;
+  let mx = 0, my = 0, mz = 0;
+  if (fpsKeys.w) mz -= 1;
+  if (fpsKeys.s) mz += 1;
+  if (fpsKeys.a) mx -= 1;
+  if (fpsKeys.d) mx += 1;
+  if (fpsKeys.space) my += 1;
+  if (fpsKeys.ctrl) my -= 1;
+  if (mx === 0 && my === 0 && mz === 0) return;
+  camera.getWorldDirection(_fpsForward);
+  _fpsRight.crossVectors(_fpsForward, _fpsUp).normalize();
+  _fpsMotion.set(0, 0, 0);
+  _fpsMotion.addScaledVector(_fpsForward, -mz);
+  _fpsMotion.addScaledVector(_fpsRight, mx);
+  _fpsMotion.y += my;
+  if (_fpsMotion.lengthSq() === 0) return;
+  _fpsMotion.normalize().multiplyScalar(fpsSpeed * (fpsKeys.shift ? 3 : 1) * dt);
+  camera.position.add(_fpsMotion);
+}
+
+// ============================================================
+// Sidebar
+// ============================================================
+const sidebarTitle = document.getElementById('sidebar-title');
+const sidebarBody = document.getElementById('sidebar-body');
+const sidebarFooter = document.getElementById('sidebar-footer');
+
+function renderSidebar() {
+  if (!selection) {
+    sidebarTitle.textContent = 'Selection';
+    sidebarBody.innerHTML = `<div class="empty">Nothing selected.<br/>Click a card, bucket, or thing to edit it.</div>`;
+    sidebarFooter.style.display = 'none';
+    return;
+  }
+  sidebarBody.innerHTML = '';
+  sidebarFooter.style.display = 'flex';
+  if (selection.type === 'card') renderCardSidebar(cards.get(selection.id));
+  else if (selection.type === 'bucket') renderBucketSidebar(buckets.get(selection.id));
+  else if (selection.type === 'thing') renderThingSidebar(things.get(selection.id));
+}
+
+function renderCardSidebar(card) {
+  if (!card) return;
+  sidebarTitle.textContent = 'Card';
+
+  const titleLabel = document.createElement('label');
+  titleLabel.textContent = 'Title';
+  const titleInput = document.createElement('input');
+  titleInput.value = card.title;
+  titleInput.addEventListener('input', () => {
+    card.title = titleInput.value;
+    drawCard(card);
+    save();
+  });
+
+  const descLabel = document.createElement('label');
+  descLabel.textContent = 'Description';
+  const descInput = document.createElement('textarea');
+  descInput.value = card.description;
+  descInput.addEventListener('input', () => {
+    card.description = descInput.value;
+    save();
+  });
+
+  const bucketLabel = document.createElement('label');
+  bucketLabel.textContent = 'Bucket';
+  const bucketRow = document.createElement('div');
+  if (card.bucketId && buckets.has(card.bucketId)) {
+    const b = buckets.get(card.bucketId);
+    const pill = document.createElement('span');
+    pill.className = 'bucket-pill';
+    pill.innerHTML = `<span class="dot" style="background:${b.color}"></span>${escapeHtml(b.name)}`;
+    pill.addEventListener('click', () => select('bucket', b.id));
+    bucketRow.appendChild(pill);
+  } else {
+    bucketRow.innerHTML = `<span class="meta">— none — drop the card inside a bucket to group it</span>`;
+  }
+
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  const [x, y, z] = card.position.map(n => n.toFixed(2));
+  meta.textContent = `Position: (${x}, ${y}, ${z})`;
+
+  sidebarBody.append(titleLabel, titleInput, descLabel, descInput, bucketLabel, bucketRow);
+
+  // Attached things
+  const attached = thingsAttachedTo(card.id);
+  const tLabel = document.createElement('label');
+  tLabel.textContent = `Attached things (${attached.length})`;
+  const tList = document.createElement('div');
+  tList.style.display = 'flex';
+  tList.style.flexDirection = 'column';
+  tList.style.gap = '4px';
+  if (attached.length === 0) {
+    tList.innerHTML = `<span class="meta">No things attached. Drag one from the palette below onto this card.</span>`;
+  } else {
+    for (const t of attached) {
+      const type = THING_TYPES[t.type] || THING_TYPES.person;
+      const row = document.createElement('div');
+      row.className = 'bucket-pill';
+      row.style.borderRadius = '6px';
+      row.innerHTML = `<span class="dot" style="background:${type.color}"></span>${escapeHtml(t.title || 'Untitled')}`;
+      row.addEventListener('click', () => select('thing', t.id));
+      tList.appendChild(row);
+    }
+  }
+
+  sidebarBody.append(tLabel, tList, meta);
+
+  if (card.title === 'New card') { titleInput.focus(); titleInput.select(); }
+}
+
+function renderThingSidebar(thing) {
+  if (!thing) return;
+  sidebarTitle.textContent = 'Thing';
+
+  const titleLabel = document.createElement('label');
+  titleLabel.textContent = 'Title';
+  const titleInput = document.createElement('input');
+  titleInput.value = thing.title;
+  titleInput.addEventListener('input', () => {
+    thing.title = titleInput.value;
+    drawThing(thing);
+    updatePalette();
+    save();
+  });
+
+  const typeLabel = document.createElement('label');
+  typeLabel.textContent = 'Type';
+  const typeSelect = document.createElement('select');
+  typeSelect.style.cssText = 'width:100%;background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font:inherit;font-size:14px;';
+  for (const [key, def] of Object.entries(THING_TYPES)) {
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = def.label;
+    if (thing.type === key) opt.selected = true;
+    typeSelect.appendChild(opt);
+  }
+  typeSelect.addEventListener('change', () => {
+    thing.type = typeSelect.value;
+    drawThing(thing);
+    updatePalette();
+    save();
+  });
+
+  const descLabel = document.createElement('label');
+  descLabel.textContent = 'Description';
+  const descInput = document.createElement('textarea');
+  descInput.value = thing.description;
+  descInput.addEventListener('input', () => {
+    thing.description = descInput.value;
+    save();
+  });
+
+  const cardLabel = document.createElement('label');
+  cardLabel.textContent = 'Attached to';
+  const cardRow = document.createElement('div');
+  if (thing.cardId && cards.has(thing.cardId)) {
+    const c = cards.get(thing.cardId);
+    const pill = document.createElement('span');
+    pill.className = 'bucket-pill';
+    pill.innerHTML = `<span class="dot" style="background:#4f8cff"></span>${escapeHtml(c.title || 'Untitled')}`;
+    pill.addEventListener('click', () => select('card', c.id));
+    cardRow.appendChild(pill);
+  } else {
+    cardRow.innerHTML = `<span class="meta">— not attached — drop onto a card to attach</span>`;
+  }
+
+  sidebarBody.append(titleLabel, titleInput, typeLabel, typeSelect, descLabel, descInput, cardLabel, cardRow);
+  if (thing.title === 'New thing') { titleInput.focus(); titleInput.select(); }
+}
+
+function renderBucketSidebar(bucket) {
+  if (!bucket) return;
+  sidebarTitle.textContent = 'Bucket';
+
+  const nameLabel = document.createElement('label');
+  nameLabel.textContent = 'Name';
+  const nameInput = document.createElement('input');
+  nameInput.value = bucket.name;
+  nameInput.addEventListener('input', () => {
+    bucket.name = nameInput.value;
+    drawBucketLabel(bucket);
+    save();
+  });
+
+  const colorLabel = document.createElement('label');
+  colorLabel.textContent = 'Color';
+  const swatches = document.createElement('div');
+  swatches.className = 'swatches';
+  for (const c of BUCKET_PALETTE) {
+    const s = document.createElement('div');
+    s.className = 'swatch' + (c.toLowerCase() === bucket.color.toLowerCase() ? ' active' : '');
+    s.style.background = c;
+    s.addEventListener('click', () => setBucketColor(bucket, c));
+    swatches.appendChild(s);
+  }
+
+  sidebarBody.append(nameLabel, nameInput, colorLabel, swatches);
+
+  // Parent breadcrumb (if nested)
+  if (bucket.parentId && buckets.has(bucket.parentId)) {
+    const parentLabel = document.createElement('label');
+    parentLabel.textContent = 'Parent';
+    const parentRow = document.createElement('div');
+    const p = buckets.get(bucket.parentId);
+    const pill = document.createElement('span');
+    pill.className = 'bucket-pill';
+    pill.innerHTML = `<span class="dot" style="background:${p.color}"></span>${escapeHtml(p.name)}`;
+    pill.addEventListener('click', () => select('bucket', p.id));
+    parentRow.appendChild(pill);
+    sidebarBody.append(parentLabel, parentRow);
+  }
+
+  // Child buckets (if depth allows)
+  const childBuckets = bucketChildrenOf(bucket.id);
+  const canHaveChildren = depthOf(bucket.id) < MAX_NEST_DEPTH;
+  if (childBuckets.length > 0 || canHaveChildren) {
+    const cbLabel = document.createElement('label');
+    cbLabel.textContent = `Child buckets (${childBuckets.length})`;
+    const cbList = document.createElement('div');
+    cbList.style.display = 'flex';
+    cbList.style.flexDirection = 'column';
+    cbList.style.gap = '4px';
+    if (childBuckets.length === 0) {
+      cbList.innerHTML = `<span class="meta">No nested buckets. Drag another bucket here, or press "+ Bucket" while this one is selected.</span>`;
+    } else {
+      for (const cb of childBuckets) {
+        const row = document.createElement('div');
+        row.className = 'bucket-pill';
+        row.style.borderRadius = '6px';
+        row.innerHTML = `<span class="dot" style="background:${cb.color}"></span>${escapeHtml(cb.name)}`;
+        row.addEventListener('click', () => select('bucket', cb.id));
+        cbList.appendChild(row);
+      }
+    }
+    sidebarBody.append(cbLabel, cbList);
+  }
+
+  // Cards
+  const members = membersOf(bucket.id);
+  const memberLabel = document.createElement('label');
+  memberLabel.textContent = `Cards (${members.length})`;
+  const memberList = document.createElement('div');
+  memberList.style.display = 'flex';
+  memberList.style.flexDirection = 'column';
+  memberList.style.gap = '4px';
+  if (members.length === 0) {
+    memberList.innerHTML = `<span class="meta">No cards yet — drop one inside the ring.</span>`;
+  } else {
+    for (const m of members) {
+      const row = document.createElement('div');
+      row.className = 'bucket-pill';
+      row.style.borderRadius = '6px';
+      row.innerHTML = `<span class="dot" style="background:${bucket.color}"></span>${escapeHtml(m.title || 'Untitled')}`;
+      row.addEventListener('click', () => select('card', m.id));
+      memberList.appendChild(row);
+    }
+  }
+  sidebarBody.append(memberLabel, memberList);
+
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  const [x, , z] = bucket.position.map(n => n.toFixed(2));
+  const depth = depthOf(bucket.id);
+  meta.textContent = `Level ${depth + 1} · center (${x}, ${z}) · radius ${bucket.radius.toFixed(2)}`;
+  sidebarBody.append(meta);
+
+  if (bucket.name === 'New bucket') { nameInput.focus(); nameInput.select(); }
+}
+
+function setBucketColor(bucket, color) {
+  bucket.color = color;
+  bucket.wallMat.uniforms.uColor.value.set(color);
+  applyBucketVisualState(bucket);
+  for (const c of membersOf(bucket.id)) drawCard(c);
+  renderSidebar();
+  save();
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
+}
+
+// ============================================================
+// Toolbar / keyboard
+// ============================================================
+document.getElementById('add-card-btn').addEventListener('click', () => addCard());
+document.getElementById('add-bucket-btn').addEventListener('click', () => {
+  // create as child of selected bucket if applicable, else top-level
+  const parentId = selection?.type === 'bucket' ? selection.id : null;
+  addBucket({ parentId });
+});
+document.getElementById('delete-btn').addEventListener('click', () => {
+  if (!selection) return;
+  if (selection.type === 'card') deleteCard(selection.id);
+  else if (selection.type === 'bucket') deleteBucket(selection.id);
+  else if (selection.type === 'thing') deleteThing(selection.id);
+});
+document.getElementById('add-thing-btn').addEventListener('click', () => addThing());
+document.getElementById('focus-btn').addEventListener('click', focusSelected);
+document.getElementById('reset-view-btn').addEventListener('click', () => {
+  camera.position.copy(DEFAULT_CAM_POS);
+  controls.target.copy(DEFAULT_CAM_TARGET);
+});
+
+function focusSelected() {
+  if (!selection) return;
+  let target;
+  let distance = 8;
+  if (selection.type === 'card') {
+    const c = cards.get(selection.id);
+    if (!c) return;
+    target = c.mesh.position.clone();
+  } else if (selection.type === 'thing') {
+    const t = things.get(selection.id);
+    if (!t) return;
+    target = t.mesh.position.clone();
+    distance = 5;
+  } else {
+    const b = buckets.get(selection.id);
+    if (!b) return;
+    target = b.group.position.clone(); target.y = BUCKET_HEIGHT / 2;
+    distance = b.radius * 2.5;
+  }
+  controls.target.copy(target);
+  const dir = new THREE.Vector3().subVectors(camera.position, target).normalize();
+  camera.position.copy(target).add(dir.multiplyScalar(distance));
+}
+
+document.addEventListener('keydown', (ev) => {
+  if (ev.target.matches('input, textarea, select')) return;
+  if (fpsMode) return;
+  if ((ev.key === 'Delete' || ev.key === 'Backspace') && selection) {
+    if (selection.type === 'card') deleteCard(selection.id);
+    else if (selection.type === 'bucket') deleteBucket(selection.id);
+    else if (selection.type === 'thing') deleteThing(selection.id);
+    ev.preventDefault();
+  }
+  if (ev.key === 'f' && selection) focusSelected();
+});
+
+// ============================================================
+// Persistence
+// ============================================================
+const STORAGE_KEY = 'obelisk.v2';
+let saveTimer = null;
+function save() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    const data = {
+      cards: [...cards.values()].map(c => ({
+        id: c.id, title: c.title, description: c.description, position: c.position, bucketId: c.bucketId || null,
+      })),
+      buckets: [...buckets.values()].map(b => ({
+        id: b.id, name: b.name, position: b.position, radius: b.radius, baseRadius: b.baseRadius, color: b.color, parentId: b.parentId || null,
+      })),
+      things: [...things.values()].map(t => ({
+        id: t.id, title: t.title, description: t.description, type: t.type, position: t.position, cardId: t.cardId || null,
+      })),
+    };
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) {}
+  }, 200);
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    const bucketList = data.buckets || [];
+    const cardList = data.cards || [];
+    const thingList = data.things || [];
+    if (bucketList.length === 0 && cardList.length === 0 && thingList.length === 0) return false;
+    for (const b of bucketList) {
+      const radius = b.radius || BUCKET_DEFAULT_RADIUS;
+      const baseRadius = b.baseRadius || radius;
+      const bucket = { id: b.id, name: b.name, position: b.position, baseRadius, radius, color: b.color || BUCKET_PALETTE[0], parentId: b.parentId || null };
+      scene.add(createBucketObjects(bucket));
+      buckets.set(bucket.id, bucket);
+    }
+    validateBucketParents();
+    for (const c of cardList) {
+      const pos = [c.position[0], CARD_ALTITUDE, c.position[2]];
+      const bucketId = (c.bucketId && buckets.has(c.bucketId)) ? c.bucketId : null;
+      const card = { id: c.id, title: c.title, description: c.description, position: pos, bucketId };
+      scene.add(createCardMesh(card));
+      cards.set(card.id, card);
+    }
+    refreshAll();
+    for (const t of thingList) {
+      if (!t || !Array.isArray(t.position)) continue;
+      const cardId = (t.cardId && cards.has(t.cardId)) ? t.cardId : null;
+      const thing = {
+        id: t.id || crypto.randomUUID(),
+        title: t.title || '',
+        description: t.description || '',
+        type: THING_TYPES[t.type] ? t.type : 'person',
+        position: [t.position[0] || 0, CARD_ALTITUDE, t.position[2] || 0],
+        cardId,
+      };
+      scene.add(createThingMesh(thing));
+      things.set(thing.id, thing);
+    }
+    for (const c of cards.values()) layoutThingsAroundCard(c);
+    updatePalette();
+    return true;
+  } catch (e) { return false; }
+}
+
+// ============================================================
+// Things palette (bottom strip)
+// ============================================================
+const paletteStrip = document.getElementById('palette-strip');
+let paletteDrag = null; // { thingId, startX, startY, isDragging, startPos, startCardId }
+
+function updatePalette() {
+  paletteStrip.innerHTML = '';
+  if (things.size === 0) {
+    const empty = document.createElement('span');
+    empty.className = 'palette-empty';
+    empty.textContent = 'No things yet — press "+ Thing" to create one. Drag chips onto cards to attach.';
+    paletteStrip.appendChild(empty);
+    return;
+  }
+  for (const thing of things.values()) {
+    const chip = document.createElement('div');
+    chip.className = 'thing-chip';
+    chip.dataset.thingId = thing.id;
+    if (thing.cardId) chip.classList.add('attached');
+    if (isSelected('thing', thing.id)) chip.classList.add('active');
+    const type = THING_TYPES[thing.type] || THING_TYPES.person;
+    const icon = document.createElement('span');
+    icon.className = `icon ${type.shape}`;
+    icon.style.background = type.color;
+    const label = document.createElement('span');
+    label.className = 'label';
+    label.textContent = thing.title || 'Untitled';
+    chip.append(icon, label);
+    attachChipDragHandlers(chip, thing.id);
+    paletteStrip.appendChild(chip);
+  }
+}
+
+function updatePaletteSelection() {
+  for (const chip of paletteStrip.children) {
+    if (chip.dataset && chip.dataset.thingId) {
+      chip.classList.toggle('active', isSelected('thing', chip.dataset.thingId));
+    }
+  }
+}
+
+function attachChipDragHandlers(chip, thingId) {
+  chip.addEventListener('pointerdown', (ev) => {
+    if (ev.button !== 0) return;
+    ev.preventDefault();
+    paletteDrag = {
+      thingId,
+      startX: ev.clientX, startY: ev.clientY,
+      isDragging: false,
+      startPos: null,
+      startCardId: null,
+    };
+    document.addEventListener('pointermove', onPaletteDragMove);
+    document.addEventListener('pointerup', onPaletteDragUp);
+  });
+}
+
+function onPaletteDragMove(ev) {
+  if (!paletteDrag) return;
+  const thing = things.get(paletteDrag.thingId);
+  if (!thing) return;
+  const dx = ev.clientX - paletteDrag.startX;
+  const dy = ev.clientY - paletteDrag.startY;
+  if (!paletteDrag.isDragging) {
+    if (dx * dx + dy * dy <= 36) return;
+    paletteDrag.isDragging = true;
+    paletteDrag.startPos = thing.position.slice();
+    paletteDrag.startCardId = thing.cardId;
+    controls.enabled = false;
+    // detach so it follows freely; re-attach on drop
+    if (thing.cardId) {
+      const oldCard = cards.get(thing.cardId);
+      thing.cardId = null;
+      if (oldCard) layoutThingsAroundCard(oldCard);
+    }
+  }
+
+  const rect = renderer.domElement.getBoundingClientRect();
+  const inCanvas = ev.clientX >= rect.left && ev.clientX <= rect.right && ev.clientY >= rect.top && ev.clientY <= rect.bottom;
+  if (!inCanvas) return;
+
+  const px = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+  const py = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+  pointer.set(px, py);
+  raycaster.setFromCamera(pointer, camera);
+  const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -CARD_ALTITUDE);
+  const hitPoint = new THREE.Vector3();
+  if (raycaster.ray.intersectPlane(plane, hitPoint)) {
+    thing.mesh.position.set(hitPoint.x, CARD_ALTITUDE, hitPoint.z);
+    thing.position = [hitPoint.x, CARD_ALTITUDE, hitPoint.z];
+  }
+
+  const cardMeshes = [...cards.values()].map(c => c.mesh);
+  const hits = raycaster.intersectObjects(cardMeshes, false);
+  const newHover = hits.length ? hits[0].object.userData.cardId : null;
+  if (newHover !== hoveredCardId) {
+    const prev = hoveredCardId;
+    hoveredCardId = newHover;
+    if (prev && cards.has(prev)) drawCard(cards.get(prev));
+    if (newHover && cards.has(newHover)) {
+      const type = THING_TYPES[thing.type] || THING_TYPES.person;
+      drawCard(cards.get(newHover), { accentOverride: type.color });
+    }
+  }
+}
+
+function onPaletteDragUp(ev) {
+  if (!paletteDrag) return;
+  document.removeEventListener('pointermove', onPaletteDragMove);
+  document.removeEventListener('pointerup', onPaletteDragUp);
+
+  const thing = things.get(paletteDrag.thingId);
+  if (!thing) { paletteDrag = null; return; }
+
+  if (!paletteDrag.isDragging) {
+    select('thing', paletteDrag.thingId);
+    paletteDrag = null;
+    return;
+  }
+
+  const rect = renderer.domElement.getBoundingClientRect();
+  const inCanvas = ev.clientX >= rect.left && ev.clientX <= rect.right && ev.clientY >= rect.top && ev.clientY <= rect.bottom;
+
+  if (inCanvas) {
+    const px = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+    const py = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+    pointer.set(px, py);
+    raycaster.setFromCamera(pointer, camera);
+    const cardMeshes = [...cards.values()].map(c => c.mesh);
+    const hits = raycaster.intersectObjects(cardMeshes, false);
+    const newCardId = hits.length ? hits[0].object.userData.cardId : null;
+    thing.cardId = newCardId;
+    if (newCardId && cards.has(newCardId)) layoutThingsAroundCard(cards.get(newCardId));
+  } else {
+    // released outside canvas — revert to pre-drag state
+    thing.position = paletteDrag.startPos.slice();
+    thing.mesh.position.fromArray(thing.position);
+    thing.cardId = paletteDrag.startCardId;
+    if (thing.cardId && cards.has(thing.cardId)) layoutThingsAroundCard(cards.get(thing.cardId));
+  }
+
+  const prevHover = hoveredCardId;
+  hoveredCardId = null;
+  if (prevHover && cards.has(prevHover)) drawCard(cards.get(prevHover));
+
+  controls.enabled = true;
+  drawThing(thing);
+  if (isSelected('thing', thing.id)) renderSidebar();
+  updatePalette();
+  save();
+  paletteDrag = null;
+}
+
+// ============================================================
+// JSON import / export
+// ============================================================
+function serializeState() {
+  return {
+    version: 4,
+    exportedAt: new Date().toISOString(),
+    buckets: [...buckets.values()].map(b => ({
+      id: b.id, name: b.name, position: b.position, radius: b.radius, baseRadius: b.baseRadius, color: b.color, parentId: b.parentId || null,
+    })),
+    cards: [...cards.values()].map(c => ({
+      id: c.id, title: c.title, description: c.description, position: c.position, bucketId: c.bucketId || null,
+    })),
+    things: [...things.values()].map(t => ({
+      id: t.id, title: t.title, description: t.description, type: t.type, position: t.position, cardId: t.cardId || null,
+    })),
+  };
+}
+
+function validateBucketParents() {
+  // strip parentId pointing to missing buckets
+  for (const b of buckets.values()) {
+    if (b.parentId && !buckets.has(b.parentId)) b.parentId = null;
+  }
+  // break cycles or over-depth chains
+  for (const b of buckets.values()) {
+    let p = b.parentId;
+    const seen = new Set([b.id]);
+    let steps = 0;
+    while (p) {
+      if (seen.has(p) || steps > 1000) { b.parentId = null; break; }
+      seen.add(p);
+      p = buckets.get(p)?.parentId;
+      steps++;
+    }
+  }
+  // enforce max nesting depth
+  for (const b of buckets.values()) {
+    while (depthOf(b.id) > MAX_NEST_DEPTH) b.parentId = null;
+  }
+}
+
+function exportJSON() {
+  const data = serializeState();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `obelisk-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function clearAll() {
+  for (const t of things.values()) {
+    scene.remove(t.mesh);
+    t.mesh.geometry.dispose();
+    t.mesh.material.map?.dispose();
+    t.mesh.material.dispose();
+  }
+  things.clear();
+  for (const c of cards.values()) {
+    scene.remove(c.mesh);
+    c.mesh.geometry.dispose();
+    c.mesh.material.map?.dispose();
+    c.mesh.material.dispose();
+  }
+  cards.clear();
+  for (const b of buckets.values()) {
+    scene.remove(b.group);
+    b.wall.geometry.dispose();
+    b.wallMat.dispose();
+    b.ring.geometry.dispose();
+    b.ringMat.dispose();
+    b.label.geometry.dispose();
+    b.labelMat.dispose();
+    b.labelTexture.dispose();
+  }
+  buckets.clear();
+  selection = null;
+  hoveredBucketId = null;
+  pushedBucketId = null;
+  hoveredCardId = null;
+  updatePalette();
+}
+
+async function importJSON(file) {
+  let text;
+  try { text = await file.text(); } catch (e) { alert('Could not read file: ' + e.message); return; }
+  let data;
+  try { data = JSON.parse(text); } catch (e) { alert('File is not valid JSON: ' + e.message); return; }
+  if (!data || (!Array.isArray(data.cards) && !Array.isArray(data.buckets) && !Array.isArray(data.things))) {
+    alert('JSON is missing "cards", "buckets", and "things" arrays.');
+    return;
+  }
+  const incoming = (data.cards?.length || 0) + (data.buckets?.length || 0) + (data.things?.length || 0);
+  const existing = cards.size + buckets.size + things.size;
+  if (existing > 0) {
+    const msg = `Replace current state (${existing} item${existing !== 1 ? 's' : ''}) with ${incoming} item${incoming !== 1 ? 's' : ''} from the file?`;
+    if (!confirm(msg)) return;
+  }
+  clearAll();
+  for (const b of (data.buckets || [])) {
+    if (!b || !Array.isArray(b.position)) continue;
+    const radius = b.radius || BUCKET_DEFAULT_RADIUS;
+    const baseRadius = b.baseRadius || radius;
+    const bucket = {
+      id: b.id || crypto.randomUUID(),
+      name: b.name || 'Bucket',
+      position: [b.position[0] || 0, 0, b.position[2] || 0],
+      baseRadius, radius,
+      color: b.color || BUCKET_PALETTE[buckets.size % BUCKET_PALETTE.length],
+      parentId: b.parentId || null,
+    };
+    scene.add(createBucketObjects(bucket));
+    buckets.set(bucket.id, bucket);
+  }
+  validateBucketParents();
+  for (const c of (data.cards || [])) {
+    if (!c || !Array.isArray(c.position)) continue;
+    const pos = [c.position[0] || 0, CARD_ALTITUDE, c.position[2] || 0];
+    const bucketId = (c.bucketId && buckets.has(c.bucketId)) ? c.bucketId : null;
+    const card = {
+      id: c.id || crypto.randomUUID(),
+      title: c.title || '',
+      description: c.description || '',
+      position: pos,
+      bucketId,
+    };
+    scene.add(createCardMesh(card));
+    cards.set(card.id, card);
+  }
+  refreshAll();
+  for (const t of (data.things || [])) {
+    if (!t || !Array.isArray(t.position)) continue;
+    const cardId = (t.cardId && cards.has(t.cardId)) ? t.cardId : null;
+    const thing = {
+      id: t.id || crypto.randomUUID(),
+      title: t.title || '',
+      description: t.description || '',
+      type: THING_TYPES[t.type] ? t.type : 'person',
+      position: [t.position[0] || 0, CARD_ALTITUDE, t.position[2] || 0],
+      cardId,
+    };
+    scene.add(createThingMesh(thing));
+    things.set(thing.id, thing);
+  }
+  for (const c of cards.values()) layoutThingsAroundCard(c);
+  updatePalette();
+  renderSidebar();
+  save();
+}
+
+document.getElementById('save-json-btn').addEventListener('click', exportJSON);
+document.getElementById('load-json-btn').addEventListener('click', () => {
+  document.getElementById('load-json-input').click();
+});
+document.getElementById('load-json-input').addEventListener('change', (ev) => {
+  const file = ev.target.files?.[0];
+  if (file) importJSON(file);
+  ev.target.value = '';
+});
+
+if (!load()) {
+  const root = addBucket({ name: 'Getting started', position: [0, 0, 0] });
+  addCard({ title: 'Welcome to Obelisk', description: 'A 3D space for organizing tasks and concepts.\n\n• Click any card, bucket, or thing to edit it\n• Shift-drag to move objects in space\n• Drop a card inside a bucket ring to group it\n• Drag a thing from the palette below onto a card to attach it\n• Nest buckets to any depth — drop one bucket into another, or use "+ Bucket" while one is selected', position: [0, 2, 0] });
+  addCard({ title: 'Group with buckets', description: 'Buckets are rings on the ground with a glowing wall. Anything dropped inside is assigned to that bucket.', position: [-2.5, 2, 1] });
+  addCard({ title: 'Drag to organize', description: 'Shift-drag to move. Drop inside or outside a bucket to assign or unassign.', position: [2, 2, -1.5] });
+  addCard({ title: 'Cards can live anywhere', description: 'Cards do not need to be in a bucket.', position: [20, 2, 3] });
+  addBucket({ name: 'Sub-bucket demo', parentId: root.id });
+  addThing({ title: 'Alice', type: 'person', position: [16, 2, -1] });
+  addThing({ title: 'Auth Service', type: 'system', position: [17, 2, 3] });
+  select(null);
+  updatePalette();
+}
+
+// ============================================================
+// Resize & render loop
+// ============================================================
+function resize() {
+  const w = container.clientWidth;
+  const h = container.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+resize();
+
+let lastFrameTime = performance.now();
+function animate() {
+  requestAnimationFrame(animate);
+  const now = performance.now();
+  const dt = Math.min((now - lastFrameTime) / 1000, 0.1);
+  lastFrameTime = now;
+  if (fpsMode) updateFPS(dt);
+  else controls.update();
+  billboardAll();
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
