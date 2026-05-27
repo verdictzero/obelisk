@@ -104,6 +104,64 @@
   button.danger:hover { border-color: var(--danger); }
   button:disabled { opacity: 0.4; cursor: not-allowed; }
 
+  button#autosave-btn { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  button#autosave-btn.active { background: #2da44e; border-color: #2da44e; color: white; }
+  button#autosave-btn.active:hover { background: #3fb461; border-color: #3fb461; }
+  button#autosave-btn.paused { border-color: #f7b955; color: #f7b955; }
+  button#autosave-btn.paused:hover { background: rgba(247,185,85,0.1); }
+  button#autosave-btn.error { border-color: var(--danger); color: var(--danger); }
+
+  button#world-toggle-btn.accomplishments {
+    background: linear-gradient(180deg, #5a4118, #2a1f08);
+    border-color: #d4a017; color: #ffd700;
+  }
+  button#world-toggle-btn.accomplishments:hover { border-color: #ffd700; background: linear-gradient(180deg, #6a4f1a, #3a2810); }
+
+  .box-select-overlay {
+    position: fixed; pointer-events: none; z-index: 8;
+    border: 1px solid var(--accent);
+    background: rgba(79, 140, 255, 0.12);
+    display: none;
+  }
+  .dropdown-menu {
+    position: fixed; z-index: 30;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 6px; min-width: 260px;
+    display: none; flex-direction: column; gap: 2px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+  .dropdown-menu .item {
+    padding: 8px 12px; border-radius: 4px; cursor: pointer;
+    display: flex; justify-content: space-between; gap: 12px;
+    font-size: 13px;
+  }
+  .dropdown-menu .item:hover { background: var(--panel-2); }
+  .dropdown-menu .item .meta { color: var(--muted); font-size: 11px; }
+  .dropdown-menu .empty { color: var(--muted); padding: 10px 12px; font-style: italic; font-size: 12px; }
+  .selection-summary {
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 12px; border: 1px dashed var(--border); border-radius: 8px;
+    background: rgba(79,140,255,0.04);
+  }
+  .selection-summary .counts {
+    display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px;
+  }
+  .selection-summary .count-chip {
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 2px 10px; color: var(--muted);
+  }
+  .selection-summary .list {
+    max-height: 200px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .selection-summary .row {
+    font-size: 12px; padding: 4px 6px; border-radius: 4px;
+    cursor: pointer; display: flex; gap: 8px; align-items: center;
+    color: var(--muted);
+  }
+  .selection-summary .row:hover { background: var(--panel-2); color: var(--text); }
+  .selection-summary .row .type { font-size: 10px; text-transform: uppercase; opacity: 0.7; min-width: 50px; }
+
   .swatches { display: flex; gap: 6px; flex-wrap: wrap; }
   .swatch {
     width: 22px; height: 22px; border-radius: 50%;
@@ -121,6 +179,34 @@
   }
   .bucket-pill .dot { width: 10px; height: 10px; border-radius: 50%; }
   .bucket-pill:hover { border-color: var(--accent); }
+
+  .badge-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .badge-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 4px 3px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 600; color: #fff;
+    user-select: none; line-height: 1.4;
+  }
+  .badge-chip.subtle {
+    background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+    padding: 3px 4px 3px 6px; cursor: pointer; font-weight: 500;
+  }
+  .badge-chip.subtle:hover { border-color: var(--accent); }
+  .badge-chip .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .badge-chip .x {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: rgba(0,0,0,0.28); color: #fff;
+    font-size: 12px; line-height: 1; cursor: pointer;
+  }
+  .badge-chip.subtle .x { background: rgba(255,255,255,0.08); color: var(--muted); }
+  .badge-chip .x:hover { background: rgba(0,0,0,0.5); }
+  .badge-chip.subtle .x:hover { background: rgba(248,81,73,0.25); color: var(--danger); }
+  .badge-form {
+    display: none; flex-direction: column; gap: 6px;
+    padding: 10px; border: 1px solid var(--border); border-radius: 6px;
+    margin-top: 4px;
+  }
 
   #toolbar {
     position: fixed; top: 12px; left: 12px; z-index: 10;
@@ -145,19 +231,27 @@
 </head>
 <body>
   <div id="canvas-container"></div>
+  <div id="box-select-overlay" class="box-select-overlay"></div>
+  <div id="restore-menu" class="dropdown-menu"></div>
 
   <div id="toolbar">
+    <button id="world-toggle-btn" title="Switch between Main and Accomplishments worlds">World: Main</button>
     <button id="add-card-btn" class="primary">+ Card</button>
     <button id="add-bucket-btn">+ Bucket</button>
+    <button id="add-region-btn">+ Region</button>
     <button id="focus-btn" title="Frame selected">Focus</button>
     <button id="reset-view-btn" title="Reset camera">Reset view</button>
     <button id="save-json-btn" title="Download current state as JSON">Save .json</button>
     <button id="load-json-btn" title="Replace current state with a JSON file">Load .json</button>
+    <button id="autosave-btn" title="Pick a JSON file on disk and keep it in sync automatically">Auto-save</button>
+    <button id="restore-btn" title="Restore from an automatic backup of a previous state">Restore ▾</button>
+    <button id="undo-btn" title="Undo (Ctrl+Z)">↶</button>
+    <button id="redo-btn" title="Redo (Ctrl+Y / Ctrl+Shift+Z)">↷</button>
     <input type="file" id="load-json-input" accept=".json,application/json" style="display:none;" />
   </div>
 
   <div id="status">
-    <kbd>L-drag</kbd> orbit · <kbd>M-drag</kbd> pan · <kbd>scroll</kbd> zoom · <kbd>R-hold + WASD</kbd> fly (<kbd>space/ctrl</kbd> up/down, <kbd>shift</kbd> sprint) · <kbd>click</kbd> select · <kbd>shift+drag</kbd> move · <kbd>del</kbd> delete
+    <kbd>L-drag</kbd> orbit · <kbd>M-drag</kbd> pan · <kbd>scroll</kbd> zoom · <kbd>R-hold + WASD</kbd> fly · <kbd>click</kbd> select · <kbd>shift+drag</kbd> move · <kbd>ctrl+drag</kbd> box-select · <kbd>del</kbd> delete · <kbd>ctrl+z/y</kbd> undo/redo
   </div>
 
   <div id="palette">
@@ -173,7 +267,7 @@
       <h1 id="sidebar-title">Selection</h1>
     </header>
     <div class="body" id="sidebar-body">
-      <div class="empty">Nothing selected.<br/>Click a card or bucket to edit it.</div>
+      <div class="empty">Nothing selected.<br/>Click a card, bucket, or region to edit it.</div>
     </div>
     <footer id="sidebar-footer" style="display:none;">
       <button id="delete-btn" class="danger">Delete</button>
@@ -221,10 +315,66 @@ controls.mouseButtons = {
   RIGHT: null, // reserved for FPS-fly (see FPS navigation section)
 };
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+scene.add(ambientLight);
 const sun = new THREE.DirectionalLight(0xffffff, 0.4);
 sun.position.set(10, 20, 10);
 scene.add(sun);
+
+// ============================================================
+// Accomplishments world scene props (floor + skydome) — hidden by default
+// ============================================================
+const accomplishmentFloorGeo = new THREE.PlaneGeometry(2000, 2000);
+accomplishmentFloorGeo.rotateX(-Math.PI / 2);
+const accomplishmentFloorMat = new THREE.MeshStandardMaterial({
+  color: 0x1a1208,
+  roughness: 0.92,
+  metalness: 0.08,
+});
+const accomplishmentFloor = new THREE.Mesh(accomplishmentFloorGeo, accomplishmentFloorMat);
+accomplishmentFloor.position.y = -0.05;
+accomplishmentFloor.renderOrder = -3;
+accomplishmentFloor.visible = false;
+scene.add(accomplishmentFloor);
+
+const accomplishmentSkyGeo = new THREE.SphereGeometry(900, 32, 16);
+const accomplishmentSkyMat = new THREE.ShaderMaterial({
+  uniforms: {
+    uHorizon: { value: new THREE.Color(0xffb84d) },
+    uSky: { value: new THREE.Color(0x0a0703) },
+    uGround: { value: new THREE.Color(0x1a1208) },
+  },
+  vertexShader: `
+    varying vec3 vWorldDir;
+    void main() {
+      vWorldDir = normalize((modelMatrix * vec4(position, 0.0)).xyz);
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    precision highp float;
+    varying vec3 vWorldDir;
+    uniform vec3 uHorizon;
+    uniform vec3 uSky;
+    uniform vec3 uGround;
+    void main() {
+      float h = vWorldDir.y;
+      // glow concentrated near horizon (h ~ 0)
+      float horizonGlow = exp(-abs(h) * 6.0);
+      // gradient: ground below, sky above
+      vec3 base = (h < 0.0) ? mix(uGround, uHorizon, smoothstep(-0.3, 0.0, h))
+                            : mix(uHorizon, uSky, smoothstep(0.0, 0.5, h));
+      vec3 col = base + uHorizon * horizonGlow * 0.6;
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `,
+  side: THREE.BackSide,
+  depthWrite: false,
+});
+const accomplishmentSky = new THREE.Mesh(accomplishmentSkyGeo, accomplishmentSkyMat);
+accomplishmentSky.renderOrder = -10;
+accomplishmentSky.visible = false;
+scene.add(accomplishmentSky);
 
 // ============================================================
 // Infinite ground grid (shader on a large plane)
@@ -294,10 +444,129 @@ grid.renderOrder = -2;
 scene.add(grid);
 
 // ============================================================
+// Worlds (Main + Accomplishments) — theme + state
+// ============================================================
+let currentWorld = 'main';
+const WORLDS = ['main', 'accomplishments'];
+const WORLD_LABELS = { main: 'Main', accomplishments: 'Accomplishments' };
+
+const WORLD_THEMES = {
+  main: {
+    background: 0x0e1116,
+    fog: { color: 0x0e1116, near: 60, far: 240 },
+    grid: { minor: 0x1c2330, major: 0x2c3a52, axisX: 0x6b3a3a, axisZ: 0x3a5a6b },
+    ambient: { color: 0xffffff, intensity: 0.9 },
+    sun: { color: 0xffffff, intensity: 0.4 },
+    card: {
+      bg: '#161b22', bgSelected: '#1d2a44',
+      border: '#2a313c', borderSelected: '#79b8ff',
+      text: '#e6edf3', accent: '#3a4658', accentSelected: '#4f8cff',
+    },
+    bucketPalette: ['#4f8cff', '#ff6b9d', '#7ad9a8', '#f7b955', '#b794f4', '#5cd4f0', '#ff8a65'],
+    regionPalette: ['#5a6878', '#785a68', '#5a7868', '#78685a', '#685a78', '#687858', '#785a5a'],
+    badgePalette: ['#f85149', '#f7b955', '#7ad9a8', '#79b8ff', '#b794f4', '#5cd4f0', '#ff6b9d', '#8b949e'],
+    thingTypes: {
+      person: { label: 'Person', color: '#4f8cff', shape: 'circle' },
+      system: { label: 'System', color: '#f7b955', shape: 'square' },
+      object: { label: 'Object', color: '#7ad9a8', shape: 'hexagon' },
+    },
+  },
+  accomplishments: {
+    background: 0x0a0703,
+    fog: { color: 0x3a2208, near: 40, far: 200 },
+    grid: { minor: 0x4a3818, major: 0xd4a017, axisX: 0xffd700, axisZ: 0xffd700 },
+    ambient: { color: 0xffe4a0, intensity: 0.55 },
+    sun: { color: 0xffd87a, intensity: 1.3 },
+    card: {
+      bg: '#1a1408', bgSelected: '#3a2a08',
+      border: '#5a3a08', borderSelected: '#ffd700',
+      text: '#ffd87a', accent: '#7a5a18', accentSelected: '#ffb84d',
+    },
+    bucketPalette: ['#d4a017', '#b8860b', '#ffb84d', '#daa520', '#e6b800', '#f0c419', '#c8a008'],
+    regionPalette: ['#5a4a18', '#6a5818', '#785a18', '#4a3a08', '#7a5a08', '#8a6a18', '#9a7a28'],
+    badgePalette: ['#ffd700', '#ffb84d', '#d4a017', '#daa520', '#b8860b', '#ff8c00', '#cd9b1d', '#e6c200'],
+    thingTypes: {
+      person: { label: 'Person', color: '#ffd700', shape: 'circle' },
+      system: { label: 'System', color: '#daa520', shape: 'square' },
+      object: { label: 'Object', color: '#ffb84d', shape: 'hexagon' },
+    },
+  },
+};
+
+function getThemeFor(world) { return WORLD_THEMES[world] || WORLD_THEMES.main; }
+function theme() { return getThemeFor(currentWorld); }
+function bucketPaletteForWorld(world) { return getThemeFor(world).bucketPalette; }
+function regionPaletteForWorld(world) { return getThemeFor(world).regionPalette; }
+function badgePaletteForWorld(world) { return getThemeFor(world).badgePalette; }
+function thingTypesForWorld(world) { return getThemeFor(world).thingTypes; }
+
+function applyTheme() {
+  const t = theme();
+  scene.background = new THREE.Color(t.background);
+  scene.fog.color.set(t.fog.color);
+  scene.fog.near = t.fog.near;
+  scene.fog.far = t.fog.far;
+  gridMat.uniforms.uMinor.value.set(t.grid.minor);
+  gridMat.uniforms.uMajor.value.set(t.grid.major);
+  gridMat.uniforms.uAxisX.value.set(t.grid.axisX);
+  gridMat.uniforms.uAxisZ.value.set(t.grid.axisZ);
+  gridMat.uniforms.uFadeFar.value = t.fog.far - 40;
+  ambientLight.color.set(t.ambient.color);
+  ambientLight.intensity = t.ambient.intensity;
+  sun.color.set(t.sun.color);
+  sun.intensity = t.sun.intensity;
+  const isAcc = currentWorld === 'accomplishments';
+  accomplishmentFloor.visible = isAcc;
+  accomplishmentSky.visible = isAcc;
+}
+
+function applyWorldVisibility() {
+  for (const c of cards.values()) if (c.mesh) c.mesh.visible = (c.world === currentWorld);
+  for (const b of buckets.values()) if (b.group) b.group.visible = (b.world === currentWorld);
+  for (const r of regions.values()) if (r.group) r.group.visible = (r.world === currentWorld);
+  for (const t of things.values()) if (t.mesh) t.mesh.visible = (t.world === currentWorld);
+}
+
+function setWorld(world) {
+  if (!WORLDS.includes(world) || world === currentWorld) return;
+  currentWorld = world;
+  applyTheme();
+  applyWorldVisibility();
+  // clear selection if it's in a different world
+  if (selection) {
+    let item = null;
+    if (selection.type === 'card') item = cards.get(selection.id);
+    else if (selection.type === 'bucket') item = buckets.get(selection.id);
+    else if (selection.type === 'region') item = regions.get(selection.id);
+    else if (selection.type === 'thing') item = things.get(selection.id);
+    if (!item || item.world !== currentWorld) select(null);
+  }
+  // refresh hover state — anything hovered in the old world should clear
+  if (hoveredBucketId && buckets.get(hoveredBucketId)?.world !== currentWorld) hoveredBucketId = null;
+  if (hoveredRegionId && regions.get(hoveredRegionId)?.world !== currentWorld) hoveredRegionId = null;
+  if (hoveredCardId && cards.get(hoveredCardId)?.world !== currentWorld) hoveredCardId = null;
+  updateWorldToggleUI();
+  updatePalette();
+  renderSidebar();
+  save();
+}
+
+function updateWorldToggleUI() {
+  const btn = document.getElementById('world-toggle-btn');
+  if (!btn) return;
+  btn.textContent = `World: ${WORLD_LABELS[currentWorld]}`;
+  btn.classList.toggle('accomplishments', currentWorld === 'accomplishments');
+  document.body.dataset.world = currentWorld;
+}
+
+// ============================================================
 // Selection state (tagged union)
 // ============================================================
 let selection = null; // { type: 'card' | 'bucket', id }
-const isSelected = (type, id) => selection && selection.type === type && selection.id === id;
+function isSelected(type, id) {
+  if (selection && selection.type === type && selection.id === id) return true;
+  return (typeof boxSelection !== 'undefined') && boxSelection.has(`${type}:${id}`);
+}
 
 // ============================================================
 // Cards
@@ -353,34 +622,110 @@ function drawCard(card, { selected = isSelected('card', card.id), accentOverride
   const w = card.canvas.width, h = card.canvas.height;
   ctx.clearRect(0, 0, w, h);
 
+  const wt = getThemeFor(card.world || 'main');
+  const cardT = wt.card;
+
   // accent precedence: explicit override > assigned bucket color > none
   const accent = accentOverride !== undefined
     ? accentOverride
     : (card.bucketId ? getBucketColor(card.bucketId) : null);
 
   // background
-  ctx.fillStyle = selected ? '#1d2a44' : '#161b22';
+  ctx.fillStyle = selected ? cardT.bgSelected : cardT.bg;
   roundRect(ctx, 4, 4, w - 8, h - 8, 24);
   ctx.fill();
 
   // border (selection > accent > default)
   ctx.lineWidth = selected ? 6 : 3;
-  ctx.strokeStyle = selected ? '#79b8ff' : (accent || '#2a313c');
+  ctx.strokeStyle = selected ? cardT.borderSelected : (accent || cardT.border);
   roundRect(ctx, 4, 4, w - 8, h - 8, 24);
   ctx.stroke();
 
   // accent bar
-  ctx.fillStyle = accent || (selected ? '#4f8cff' : '#3a4658');
+  ctx.fillStyle = accent || (selected ? cardT.accentSelected : cardT.accent);
   roundRect(ctx, 20, 24, 8, h - 48, 4);
   ctx.fill();
 
   // title text
-  ctx.fillStyle = '#e6edf3';
+  ctx.fillStyle = cardT.text;
   ctx.font = '600 36px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif';
   ctx.textBaseline = 'top';
   wrapText(ctx, card.title || 'Untitled', 48, 36, w - 80, 44, 4);
 
+  drawCardBadges(ctx, card, w, h);
+  drawCardAccomplishmentMarker(ctx, card, w, h);
+
   card.texture.needsUpdate = true;
+}
+
+function drawCardAccomplishmentMarker(ctx, card, w, h) {
+  const ids = card.accomplishmentIds || [];
+  if (ids.length === 0) return;
+  const cx = w - 36, cy = 34;
+  // gold star
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.fillStyle = '#ffd700';
+  ctx.strokeStyle = '#b8860b';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const r = (i % 2 === 0) ? 16 : 7;
+    const a = Math.PI / 5 * i - Math.PI / 2;
+    const px = Math.cos(a) * r, py = Math.sin(a) * r;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  if (ids.length > 1) {
+    ctx.fillStyle = '#1a1408';
+    ctx.font = '700 14px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(ids.length), 0, 1);
+    ctx.textAlign = 'start';
+  }
+  ctx.restore();
+}
+
+function drawCardBadges(ctx, card, w, h) {
+  if (!card.badgeIds || card.badgeIds.length === 0) return;
+  const list = card.badgeIds.map(id => badges.get(id)).filter(Boolean);
+  if (list.length === 0) return;
+  const pillH = 28;
+  const padX = 12;
+  const gap = 6;
+  const fontSize = 18;
+  const y = h - pillH - 14;
+  const maxX = w - 24;
+  let x = 40;
+  ctx.font = `600 ${fontSize}px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif`;
+  ctx.textBaseline = 'middle';
+  for (let i = 0; i < list.length; i++) {
+    const b = list[i];
+    const remaining = list.length - i;
+    const label = b.label || 'badge';
+    const tw = ctx.measureText(label).width;
+    const pillW = tw + padX * 2;
+    const overflowLabel = `+${remaining}`;
+    const ow = ctx.measureText(overflowLabel).width + padX * 2;
+    const needsOverflow = (remaining > 1) && (x + pillW + gap + ow > maxX);
+    if ((x + pillW > maxX) || needsOverflow) {
+      ctx.fillStyle = 'rgba(255,255,255,0.16)';
+      roundRect(ctx, x, y, ow, pillH, pillH / 2);
+      ctx.fill();
+      ctx.fillStyle = '#e6edf3';
+      ctx.fillText(overflowLabel, x + padX, y + pillH / 2);
+      return;
+    }
+    ctx.fillStyle = b.color;
+    roundRect(ctx, x, y, pillW, pillH, pillH / 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(label, x + padX, y + pillH / 2);
+    x += pillW + gap;
+  }
 }
 
 function createCardMesh(card) {
@@ -412,14 +757,19 @@ function addCard({ title = 'New card', description = '', position, bucketId } = 
     position = [position[0], CARD_ALTITUDE, position[2]];
   }
   const id = crypto.randomUUID();
-  const card = { id, title, description, position, bucketId: bucketId ?? null };
+  const card = { id, title, description, position, bucketId: bucketId ?? null, regionId: null, badgeIds: [], accomplishmentIds: [], world: currentWorld };
   if (card.bucketId === null) {
     const inB = findBucketContaining(position);
-    if (inB) card.bucketId = inB.id;
+    if (inB && inB.world === card.world) card.bucketId = inB.id;
+  }
+  if (card.bucketId === null) {
+    const inR = findRegionContaining(position[0], position[2]);
+    if (inR && inR.world === card.world) card.regionId = inR.id;
   }
   scene.add(createCardMesh(card));
   cards.set(id, card);
   if (card.bucketId && buckets.has(card.bucketId)) refreshBucket(buckets.get(card.bucketId));
+  if (card.regionId && regions.has(card.regionId)) refreshRegion(regions.get(card.regionId));
   select('card', id);
   save();
   return card;
@@ -429,6 +779,7 @@ function deleteCard(id) {
   const card = cards.get(id);
   if (!card) return;
   const oldBucketId = card.bucketId;
+  const oldRegionId = card.regionId;
   // orphan attached things (they keep their last position, lose attachment)
   let orphanedThings = false;
   for (const t of things.values()) {
@@ -440,6 +791,7 @@ function deleteCard(id) {
   card.mesh.material.dispose();
   cards.delete(id);
   if (oldBucketId && buckets.has(oldBucketId)) refreshBucket(buckets.get(oldBucketId));
+  if (oldRegionId && regions.has(oldRegionId)) refreshRegion(regions.get(oldRegionId));
   if (isSelected('card', id)) select(null);
   if (orphanedThings) updatePalette();
   save();
@@ -583,12 +935,27 @@ function addBucket({ name = 'New bucket', position, radius = BUCKET_DEFAULT_RADI
   } else {
     position = [position[0], 0, position[2]];
   }
-  if (!color) color = BUCKET_PALETTE[buckets.size % BUCKET_PALETTE.length];
+  const palette = bucketPaletteForWorld(currentWorld);
+  if (!color) {
+    const sameWorld = [...buckets.values()].filter(b => b.world === currentWorld).length;
+    color = palette[sameWorld % palette.length];
+  }
   const id = crypto.randomUUID();
-  const bucket = { id, name, position, baseRadius: radius, radius, color, parentId };
+  const bucket = { id, name, position, baseRadius: radius, radius, color, parentId, regionId: null, world: currentWorld };
+  if (!parentId) {
+    const inR = findRegionContaining(position[0], position[2]);
+    if (inR && inR.world === bucket.world) bucket.regionId = inR.id;
+  }
   scene.add(createBucketObjects(bucket));
   buckets.set(id, bucket);
+  // nudge if the default position overlaps any existing same-world bucket
+  const r = resolveBucketOverlap(bucket, bucket.position[0], bucket.position[2]);
+  if (Math.abs(r.x - bucket.position[0]) > 1e-3 || Math.abs(r.z - bucket.position[2]) > 1e-3) {
+    const d = new THREE.Vector3(r.x - bucket.position[0], 0, r.z - bucket.position[2]);
+    translateBucketTree(bucket, d);
+  }
   if (parentId && buckets.has(parentId)) refreshBucket(buckets.get(parentId));
+  if (bucket.regionId && regions.has(bucket.regionId)) refreshRegion(regions.get(bucket.regionId));
   select('bucket', id);
   save();
   return bucket;
@@ -598,16 +965,31 @@ function deleteBucket(id) {
   const bucket = buckets.get(id);
   if (!bucket) return;
   const oldParentId = bucket.parentId;
-  // orphan direct card children — they keep their positions, lose membership
+  const oldRegionId = bucket.regionId;
+  // orphan direct card children — they keep their positions, lose membership; re-check region by position
+  const regionsToRefresh = new Set();
+  if (oldRegionId && regions.has(oldRegionId)) regionsToRefresh.add(oldRegionId);
   for (const c of cards.values()) {
     if (c.bucketId === id) {
       c.bucketId = null;
+      const inR = findRegionContaining(c.position[0], c.position[2]);
+      const newRId = inR ? inR.id : null;
+      if (c.regionId && c.regionId !== newRId) regionsToRefresh.add(c.regionId);
+      c.regionId = newRId;
+      if (newRId) regionsToRefresh.add(newRId);
       drawCard(c);
     }
   }
-  // orphan direct bucket children — they become top-level (or children of grandparent? top-level is simpler)
+  // orphan direct bucket children — they become top-level; re-check region by position
   for (const b of buckets.values()) {
-    if (b.parentId === id) b.parentId = null;
+    if (b.parentId === id) {
+      b.parentId = null;
+      const inR = findRegionContaining(b.position[0], b.position[2]);
+      const newRId = inR ? inR.id : null;
+      if (b.regionId && b.regionId !== newRId) regionsToRefresh.add(b.regionId);
+      b.regionId = newRId;
+      if (newRId) regionsToRefresh.add(newRId);
+    }
   }
   scene.remove(bucket.group);
   bucket.wall.geometry.dispose();
@@ -620,6 +1002,7 @@ function deleteBucket(id) {
   buckets.delete(id);
   if (isSelected('bucket', id)) select(null);
   if (oldParentId && buckets.has(oldParentId)) refreshBucket(buckets.get(oldParentId));
+  for (const rid of regionsToRefresh) if (regions.has(rid)) refreshRegion(regions.get(rid));
   save();
 }
 
@@ -711,6 +1094,9 @@ function refreshBucket(bucket) {
   layoutBucketMembers(bucket);
   if (bucket.parentId && buckets.has(bucket.parentId)) {
     refreshBucket(buckets.get(bucket.parentId));
+  } else if (bucket.regionId && regions.has(bucket.regionId)) {
+    // top-level bucket inside a region — region needs to expand to fit the new radius
+    refreshRegion(regions.get(bucket.regionId));
   }
 }
 
@@ -798,6 +1184,7 @@ function findDeepestBucketContaining(x, z, excludeIds = null) {
   let best = null;
   let bestDepth = -1;
   for (const b of buckets.values()) {
+    if (b.world !== currentWorld) continue;
     if (excludeIds && excludeIds.has(b.id)) continue;
     const dx = x - b.position[0];
     const dz = z - b.position[2];
@@ -823,6 +1210,360 @@ function bucketChildrenOf(bucketId) {
   const out = [];
   for (const b of buckets.values()) if (b.parentId === bucketId) out.push(b);
   return out;
+}
+
+// Push the dragged bucket's proposed (x,z) out of overlap with other buckets.
+// Allowed overlaps: self, ancestors (we sit inside them), descendants (they sit inside us),
+// nest target (the bucket whose center we're entering), and siblings under a shared non-null
+// parent (orbital layout will resolve those on drop).
+function resolveBucketOverlap(dragged, x, z) {
+  const desc = descendantSet(dragged.id, true);
+  const skip = new Set(desc);
+  let p = dragged.parentId;
+  while (p) { skip.add(p); p = buckets.get(p)?.parentId; }
+  const nest = findDeepestBucketContaining(x, z, desc);
+  if (nest) skip.add(nest.id);
+  let nx = x, nz = z;
+  for (let pass = 0; pass < 6; pass++) {
+    let moved = false;
+    for (const other of buckets.values()) {
+      if (skip.has(other.id)) continue;
+      if (other.world !== dragged.world) continue;
+      if (dragged.parentId !== null && dragged.parentId === other.parentId) continue;
+      const dx = nx - other.position[0];
+      const dz = nz - other.position[2];
+      const dist = Math.hypot(dx, dz);
+      const minDist = dragged.radius + other.radius;
+      if (dist >= minDist) continue;
+      if (dist < 1e-4) {
+        nx += minDist;
+      } else {
+        const push = (minDist - dist);
+        nx += (dx / dist) * push;
+        nz += (dz / dist) * push;
+      }
+      moved = true;
+    }
+    if (!moved) break;
+  }
+  return { x: nx, z: nz };
+}
+
+// ============================================================
+// Regions (rectangular super-groups that auto-size to contents)
+// ============================================================
+const REGION_HEIGHT = 5.5;
+const REGION_DEFAULT_W = 14;
+const REGION_DEFAULT_D = 14;
+const REGION_PADDING = 2.0;
+const REGION_STICKY_MARGIN = 3.0; // extra zone where a current member stays bonded on drop
+const REGION_FRAME_THICKNESS = 0.18;
+const REGION_PALETTE = ['#5a6878', '#785a68', '#5a7868', '#78685a', '#685a78', '#687858', '#785a5a'];
+const regions = new Map();
+let hoveredRegionId = null;
+
+function makeRegionWallGeometry(width, depth, height) {
+  const hw = width / 2, hd = depth / 2;
+  const positions = [], uvs = [], indices = [];
+  function addQuad(a, b, c, d) {
+    const i = positions.length / 3;
+    positions.push(...a, ...b, ...c, ...d);
+    uvs.push(0, 0, 1, 0, 1, 1, 0, 1);
+    indices.push(i, i + 1, i + 2, i, i + 2, i + 3);
+  }
+  addQuad([-hw, 0, hd], [hw, 0, hd], [hw, height, hd], [-hw, height, hd]);
+  addQuad([hw, 0, -hd], [-hw, 0, -hd], [-hw, height, -hd], [hw, height, -hd]);
+  addQuad([-hw, 0, -hd], [-hw, 0, hd], [-hw, height, hd], [-hw, height, -hd]);
+  addQuad([hw, 0, hd], [hw, 0, -hd], [hw, height, -hd], [hw, height, hd]);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  g.setIndex(indices);
+  return g;
+}
+
+function buildRegionFrame(region) {
+  const t = REGION_FRAME_THICKNESS;
+  const w = region.width, d = region.depth;
+  const mat = new THREE.MeshBasicMaterial({ color: region.color });
+  const meshes = [];
+  const top = new THREE.Mesh(new THREE.BoxGeometry(w + t * 2, t, t), mat);
+  top.position.set(0, 0.02, d / 2 + t / 2);
+  meshes.push(top);
+  const bot = new THREE.Mesh(new THREE.BoxGeometry(w + t * 2, t, t), mat);
+  bot.position.set(0, 0.02, -d / 2 - t / 2);
+  meshes.push(bot);
+  const left = new THREE.Mesh(new THREE.BoxGeometry(t, t, d), mat);
+  left.position.set(-w / 2 - t / 2, 0.02, 0);
+  meshes.push(left);
+  const right = new THREE.Mesh(new THREE.BoxGeometry(t, t, d), mat);
+  right.position.set(w / 2 + t / 2, 0.02, 0);
+  meshes.push(right);
+  for (const m of meshes) {
+    m.userData.regionId = region.id;
+    region.group.add(m);
+  }
+  region.frameMat = mat;
+  region.frameMeshes = meshes;
+}
+
+function disposeRegionFrame(region) {
+  for (const m of region.frameMeshes) {
+    m.geometry.dispose();
+    region.group.remove(m);
+  }
+  region.frameMat.dispose();
+  region.frameMeshes = [];
+}
+
+function makeRegionLabelCanvas() {
+  const c = document.createElement('canvas');
+  c.width = 640; c.height = 96;
+  return c;
+}
+
+function drawRegionLabel(region, { selected = isSelected('region', region.id) } = {}) {
+  const { labelCanvas: canvas, name, color } = region;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = 'rgba(14,17,22,0.88)';
+  roundRect(ctx, 0, 0, w, h, 28);
+  ctx.fill();
+  ctx.lineWidth = selected ? 5 : 3;
+  ctx.strokeStyle = color;
+  roundRect(ctx, 2, 2, w - 4, h - 4, 26);
+  ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.fillRect(28, h / 2 - 14, 8, 28);
+  ctx.fillStyle = '#e6edf3';
+  ctx.font = '600 36px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif';
+  ctx.textBaseline = 'middle';
+  let text = name || 'Untitled region';
+  let suffix = '';
+  while (ctx.measureText(text + suffix).width > w - 70 && text.length > 0) {
+    text = text.slice(0, -1);
+    suffix = '…';
+  }
+  ctx.fillText(text + suffix, 56, h / 2 + 2);
+  region.labelTexture.needsUpdate = true;
+}
+
+function createRegionObjects(region) {
+  const group = new THREE.Group();
+  group.position.fromArray(region.position);
+  region.group = group;
+
+  const wallGeo = makeRegionWallGeometry(region.width, region.depth, REGION_HEIGHT);
+  const wallMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uColor: { value: new THREE.Color(region.color) },
+      uOpacity: { value: 0.22 },
+    },
+    vertexShader: wallVertexShader,
+    fragmentShader: wallFragmentShader,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  const wall = new THREE.Mesh(wallGeo, wallMat);
+  wall.renderOrder = -1;
+  group.add(wall);
+  region.wall = wall;
+  region.wallMat = wallMat;
+
+  region.frameMeshes = [];
+  buildRegionFrame(region);
+
+  const labelCanvas = makeRegionLabelCanvas();
+  const labelTexture = new THREE.CanvasTexture(labelCanvas);
+  labelTexture.colorSpace = THREE.SRGBColorSpace;
+  labelTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const labelMat = new THREE.MeshBasicMaterial({ map: labelTexture, transparent: true, side: THREE.DoubleSide });
+  const labelGeo = new THREE.PlaneGeometry(4.0, 0.6);
+  const label = new THREE.Mesh(labelGeo, labelMat);
+  label.position.set(0, REGION_HEIGHT + 1.0, 0);
+  label.userData.regionId = region.id;
+  group.add(label);
+  region.label = label;
+  region.labelMat = labelMat;
+  region.labelCanvas = labelCanvas;
+  region.labelTexture = labelTexture;
+  drawRegionLabel(region);
+
+  return group;
+}
+
+function rebuildRegionGeometry(region) {
+  region.wall.geometry.dispose();
+  region.wall.geometry = makeRegionWallGeometry(region.width, region.depth, REGION_HEIGHT);
+  disposeRegionFrame(region);
+  buildRegionFrame(region);
+}
+
+function regionMembers(regionId) {
+  const out = { buckets: [], cards: [] };
+  for (const b of buckets.values()) if (b.regionId === regionId && !b.parentId) out.buckets.push(b);
+  for (const c of cards.values()) if (c.regionId === regionId && !c.bucketId) out.cards.push(c);
+  return out;
+}
+
+function computeRegionBounds(region) {
+  const m = regionMembers(region.id);
+  const cx = region.position[0];
+  const cz = region.position[2];
+  if (m.buckets.length === 0 && m.cards.length === 0) {
+    return { width: REGION_DEFAULT_W, depth: REGION_DEFAULT_D };
+  }
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  for (const b of m.buckets) {
+    minX = Math.min(minX, b.position[0] - b.radius);
+    maxX = Math.max(maxX, b.position[0] + b.radius);
+    minZ = Math.min(minZ, b.position[2] - b.radius);
+    maxZ = Math.max(maxZ, b.position[2] + b.radius);
+  }
+  for (const c of m.cards) {
+    minX = Math.min(minX, c.position[0] - CARD_HALF_SIZE);
+    maxX = Math.max(maxX, c.position[0] + CARD_HALF_SIZE);
+    minZ = Math.min(minZ, c.position[2] - CARD_HALF_SIZE);
+    maxZ = Math.max(maxZ, c.position[2] + CARD_HALF_SIZE);
+  }
+  // keep center fixed; grow symmetrically (around fixed center) to encompass furthest reach
+  const halfW = Math.max(REGION_DEFAULT_W / 2, maxX - cx, cx - minX) + REGION_PADDING;
+  const halfD = Math.max(REGION_DEFAULT_D / 2, maxZ - cz, cz - minZ) + REGION_PADDING;
+  return { width: halfW * 2, depth: halfD * 2 };
+}
+
+function refreshRegion(region) {
+  const b = computeRegionBounds(region);
+  const needsResize = Math.abs(b.width - region.width) > 0.05 || Math.abs(b.depth - region.depth) > 0.05;
+  region.width = b.width;
+  region.depth = b.depth;
+  if (needsResize) rebuildRegionGeometry(region);
+}
+
+function refreshAllRegions() {
+  for (const r of regions.values()) refreshRegion(r);
+}
+
+// Push the dragged region's proposed (x,z) out of AABB overlap with other regions.
+// Separation is along the axis of least overlap (AABB minimum translation vector).
+function resolveRegionOverlap(dragged, x, z) {
+  let nx = x, nz = z;
+  const halfW = dragged.width / 2, halfD = dragged.depth / 2;
+  for (let pass = 0; pass < 6; pass++) {
+    let moved = false;
+    for (const other of regions.values()) {
+      if (other === dragged) continue;
+      if (other.world !== dragged.world) continue;
+      const ohw = other.width / 2, ohd = other.depth / 2;
+      const dx = nx - other.position[0];
+      const dz = nz - other.position[2];
+      const overlapX = (halfW + ohw) - Math.abs(dx);
+      const overlapZ = (halfD + ohd) - Math.abs(dz);
+      if (overlapX <= 0 || overlapZ <= 0) continue;
+      if (overlapX < overlapZ) {
+        nx += (dx >= 0 ? overlapX : -overlapX);
+      } else {
+        nz += (dz >= 0 ? overlapZ : -overlapZ);
+      }
+      moved = true;
+    }
+    if (!moved) break;
+  }
+  return { x: nx, z: nz };
+}
+
+function findRegionContaining(x, z, currentRegionId = null) {
+  for (const r of regions.values()) {
+    if (r.world !== currentWorld) continue;
+    const margin = (currentRegionId === r.id) ? REGION_STICKY_MARGIN : 0;
+    const dx = Math.abs(x - r.position[0]);
+    const dz = Math.abs(z - r.position[2]);
+    if (dx <= r.width / 2 + margin && dz <= r.depth / 2 + margin) return r;
+  }
+  return null;
+}
+
+function applyRegionVisualState(region) {
+  const sel = isSelected('region', region.id);
+  const hov = hoveredRegionId === region.id;
+  let opacity = 0.22;
+  if (hov) opacity = 0.55;
+  else if (sel) opacity = 0.4;
+  region.wallMat.uniforms.uOpacity.value = opacity;
+  const intensity = hov ? 1.5 : 1.0;
+  region.frameMat.color.set(region.color).multiplyScalar(intensity);
+  drawRegionLabel(region, { selected: sel || hov });
+}
+
+function addRegion({ name = 'New region', position, width = REGION_DEFAULT_W, depth = REGION_DEFAULT_D, color } = {}) {
+  if (!position) {
+    const forward = new THREE.Vector3();
+    camera.getWorldDirection(forward);
+    forward.y = 0; forward.normalize();
+    const p = new THREE.Vector3().copy(controls.target).add(forward.multiplyScalar(10));
+    p.x += (Math.random() - 0.5) * 8;
+    p.z += (Math.random() - 0.5) * 8;
+    position = [p.x, 0, p.z];
+  } else {
+    position = [position[0], 0, position[2]];
+  }
+  const palette = regionPaletteForWorld(currentWorld);
+  if (!color) {
+    const sameWorld = [...regions.values()].filter(r => r.world === currentWorld).length;
+    color = palette[sameWorld % palette.length];
+  }
+  const id = crypto.randomUUID();
+  const region = { id, name, position, width, depth, color, world: currentWorld };
+  scene.add(createRegionObjects(region));
+  regions.set(id, region);
+  // nudge if the default position overlaps any existing same-world region
+  const rr = resolveRegionOverlap(region, region.position[0], region.position[2]);
+  if (Math.abs(rr.x - region.position[0]) > 1e-3 || Math.abs(rr.z - region.position[2]) > 1e-3) {
+    const d = new THREE.Vector3(rr.x - region.position[0], 0, rr.z - region.position[2]);
+    translateRegion(region, d);
+  }
+  select('region', id);
+  save();
+  return region;
+}
+
+function deleteRegion(id) {
+  const region = regions.get(id);
+  if (!region) return;
+  for (const b of buckets.values()) if (b.regionId === id) b.regionId = null;
+  for (const c of cards.values()) if (c.regionId === id) c.regionId = null;
+  scene.remove(region.group);
+  region.wall.geometry.dispose();
+  region.wallMat.dispose();
+  disposeRegionFrame(region);
+  region.label.geometry.dispose();
+  region.labelMat.dispose();
+  region.labelTexture.dispose();
+  regions.delete(id);
+  if (isSelected('region', id)) select(null);
+  save();
+}
+
+function translateRegion(region, delta) {
+  region.group.position.add(delta);
+  region.position = [region.group.position.x, 0, region.group.position.z];
+  for (const b of buckets.values()) {
+    if (b.regionId === region.id && !b.parentId) translateBucketTree(b, delta);
+  }
+  for (const c of cards.values()) {
+    if (c.regionId === region.id && !c.bucketId) {
+      c.mesh.position.add(delta);
+      c.position = c.mesh.position.toArray();
+      for (const t of things.values()) {
+        if (t.cardId === c.id) {
+          t.mesh.position.add(delta);
+          t.position = t.mesh.position.toArray();
+        }
+      }
+    }
+  }
 }
 
 // ============================================================
@@ -867,21 +1608,24 @@ function drawThing(thing, { selected = isSelected('thing', thing.id) } = {}) {
   const ctx = thing.canvas.getContext('2d');
   const w = thing.canvas.width, h = thing.canvas.height;
   ctx.clearRect(0, 0, w, h);
-  const type = THING_TYPES[thing.type] || THING_TYPES.person;
+  const wt = getThemeFor(thing.world || 'main');
+  const types = wt.thingTypes;
+  const type = types[thing.type] || types.person;
+  const cardT = wt.card;
 
-  ctx.fillStyle = selected ? '#1d2a44' : '#161b22';
+  ctx.fillStyle = selected ? cardT.bgSelected : cardT.bg;
   roundRect(ctx, 4, 4, w - 8, h - 8, 16);
   ctx.fill();
 
   ctx.lineWidth = selected ? 5 : 3;
-  ctx.strokeStyle = selected ? '#79b8ff' : type.color;
+  ctx.strokeStyle = selected ? cardT.borderSelected : type.color;
   roundRect(ctx, 4, 4, w - 8, h - 8, 16);
   ctx.stroke();
 
   ctx.fillStyle = type.color;
   drawThingShape(ctx, 36, h / 2, 18, type.shape);
 
-  ctx.fillStyle = '#e6edf3';
+  ctx.fillStyle = cardT.text;
   ctx.font = '600 32px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif';
   ctx.textBaseline = 'middle';
   let text = thing.title || 'Untitled';
@@ -926,7 +1670,7 @@ function addThing({ title = 'New thing', description = '', type = 'person', posi
   }
   if (cardId && !cards.has(cardId)) cardId = null;
   const id = crypto.randomUUID();
-  const thing = { id, title, description, type, position, cardId };
+  const thing = { id, title, description, type, position, cardId, world: currentWorld };
   scene.add(createThingMesh(thing));
   things.set(id, thing);
   if (cardId && cards.has(cardId)) layoutThingsAroundCard(cards.get(cardId));
@@ -971,9 +1715,113 @@ function layoutThingsAroundCard(card) {
 }
 
 // ============================================================
+// Badges (reusable labels you can stick on any card)
+// ============================================================
+const BADGE_PALETTE = ['#f85149', '#f7b955', '#7ad9a8', '#79b8ff', '#b794f4', '#5cd4f0', '#ff6b9d', '#8b949e'];
+const BADGE_MAX_LABEL = 20;
+const badges = new Map(); // id -> { id, label, color }
+
+function createBadge({ label = 'Badge', color } = {}) {
+  const palette = badgePaletteForWorld(currentWorld);
+  if (!color) {
+    const sameWorld = [...badges.values()].filter(b => b.world === currentWorld).length;
+    color = palette[sameWorld % palette.length];
+  }
+  const id = crypto.randomUUID();
+  const badge = { id, label: String(label).slice(0, BADGE_MAX_LABEL), color, world: currentWorld };
+  badges.set(id, badge);
+  save();
+  return badge;
+}
+
+function updateBadge(id, patch) {
+  const b = badges.get(id);
+  if (!b) return;
+  if (patch.label !== undefined) b.label = String(patch.label).slice(0, BADGE_MAX_LABEL);
+  if (patch.color !== undefined) b.color = patch.color;
+  for (const c of cards.values()) if (c.badgeIds && c.badgeIds.includes(id)) drawCard(c);
+  save();
+}
+
+function deleteBadge(id) {
+  if (!badges.has(id)) return;
+  badges.delete(id);
+  for (const c of cards.values()) {
+    if (c.badgeIds && c.badgeIds.includes(id)) {
+      c.badgeIds = c.badgeIds.filter(x => x !== id);
+      drawCard(c);
+    }
+  }
+  save();
+}
+
+function applyBadgeToCard(cardId, badgeId) {
+  const card = cards.get(cardId);
+  if (!card || !badges.has(badgeId)) return;
+  if (!card.badgeIds) card.badgeIds = [];
+  if (card.badgeIds.includes(badgeId)) return;
+  card.badgeIds.push(badgeId);
+  drawCard(card);
+  save();
+}
+
+function removeBadgeFromCard(cardId, badgeId) {
+  const card = cards.get(cardId);
+  if (!card || !card.badgeIds) return;
+  card.badgeIds = card.badgeIds.filter(x => x !== badgeId);
+  drawCard(card);
+  save();
+}
+
+function linkAccomplishmentToCard(cardId, accomplishmentCardId) {
+  const card = cards.get(cardId);
+  const acc = cards.get(accomplishmentCardId);
+  if (!card || !acc) return;
+  if (card.world !== 'main' || acc.world !== 'accomplishments') return;
+  if (!card.accomplishmentIds) card.accomplishmentIds = [];
+  if (card.accomplishmentIds.includes(accomplishmentCardId)) return;
+  card.accomplishmentIds.push(accomplishmentCardId);
+  drawCard(card);
+  save();
+}
+
+function unlinkAccomplishmentFromCard(cardId, accomplishmentCardId) {
+  const card = cards.get(cardId);
+  if (!card || !card.accomplishmentIds) return;
+  card.accomplishmentIds = card.accomplishmentIds.filter(x => x !== accomplishmentCardId);
+  drawCard(card);
+  save();
+}
+
+function jumpToAccomplishment(accId) {
+  const acc = cards.get(accId);
+  if (!acc) return;
+  if (acc.world !== currentWorld) setWorld(acc.world);
+  select('card', accId);
+  // focus camera on it
+  const target = acc.mesh.position.clone();
+  controls.target.copy(target);
+  const dir = new THREE.Vector3().subVectors(camera.position, target).normalize();
+  camera.position.copy(target).add(dir.multiplyScalar(8));
+}
+
+// ============================================================
 // Selection
 // ============================================================
 function select(type, id = null) {
+  // clicking a single item (or clearing) drops any active box-selection
+  if (typeof boxSelection !== 'undefined' && boxSelection.size > 0) {
+    const stale = [...boxSelection];
+    boxSelection.clear();
+    for (const k of stale) {
+      const i = k.indexOf(':');
+      const t = k.slice(0, i), iid = k.slice(i + 1);
+      if (t === 'card') { const c = cards.get(iid); if (c) drawCard(c); }
+      else if (t === 'bucket') { const b = buckets.get(iid); if (b) applyBucketVisualState(b); }
+      else if (t === 'region') { const r = regions.get(iid); if (r) applyRegionVisualState(r); }
+      else if (t === 'thing') { const th = things.get(iid); if (th) drawThing(th); }
+    }
+  }
   const prev = selection;
   selection = (type && id) ? { type, id } : null;
   if (prev) {
@@ -983,6 +1831,9 @@ function select(type, id = null) {
     } else if (prev.type === 'bucket') {
       const b = buckets.get(prev.id);
       if (b) applyBucketVisualState(b);
+    } else if (prev.type === 'region') {
+      const r = regions.get(prev.id);
+      if (r) applyRegionVisualState(r);
     } else if (prev.type === 'thing') {
       const t = things.get(prev.id);
       if (t) drawThing(t);
@@ -995,6 +1846,9 @@ function select(type, id = null) {
     } else if (selection.type === 'bucket') {
       const b = buckets.get(selection.id);
       if (b) applyBucketVisualState(b);
+    } else if (selection.type === 'region') {
+      const r = regions.get(selection.id);
+      if (r) applyRegionVisualState(r);
     } else if (selection.type === 'thing') {
       const t = things.get(selection.id);
       if (t) drawThing(t);
@@ -1012,6 +1866,7 @@ function billboardAll() {
   tmpVec.copy(camera.position);
   for (const card of cards.values()) card.mesh.lookAt(tmpVec);
   for (const bucket of buckets.values()) bucket.label.lookAt(tmpVec);
+  for (const region of regions.values()) region.label.lookAt(tmpVec);
   for (const thing of things.values()) thing.mesh.lookAt(tmpVec);
 }
 
@@ -1037,14 +1892,19 @@ function pickAny(ev) {
   setPointer(ev);
   raycaster.setFromCamera(pointer, camera);
   const targets = [];
-  for (const c of cards.values()) targets.push(c.mesh);
-  for (const b of buckets.values()) { targets.push(b.ring); targets.push(b.label); }
-  for (const t of things.values()) targets.push(t.mesh);
+  for (const c of cards.values()) if (c.world === currentWorld) targets.push(c.mesh);
+  for (const b of buckets.values()) if (b.world === currentWorld) { targets.push(b.ring); targets.push(b.label); }
+  for (const r of regions.values()) if (r.world === currentWorld) {
+    targets.push(r.label);
+    for (const fm of r.frameMeshes) targets.push(fm);
+  }
+  for (const t of things.values()) if (t.world === currentWorld) targets.push(t.mesh);
   const hits = raycaster.intersectObjects(targets, false);
   if (!hits.length) return null;
   const o = hits[0].object;
   if (o.userData.cardId) return { type: 'card', id: o.userData.cardId };
   if (o.userData.bucketId) return { type: 'bucket', id: o.userData.bucketId };
+  if (o.userData.regionId) return { type: 'region', id: o.userData.regionId };
   if (o.userData.thingId) return { type: 'thing', id: o.userData.thingId };
   return null;
 }
@@ -1053,6 +1913,21 @@ renderer.domElement.addEventListener('pointerdown', (ev) => {
   if (ev.button !== 0) return;
   pointerDownPos = { x: ev.clientX, y: ev.clientY };
   pointerMoved = false;
+
+  // Ctrl/Cmd + drag on empty space → box select
+  if ((ev.ctrlKey || ev.metaKey) && !ev.shiftKey) {
+    const hitCheck = pickAny(ev);
+    if (!hitCheck) {
+      boxSelectStart = { x: ev.clientX, y: ev.clientY };
+      controls.enabled = false;
+      boxOverlay.style.display = 'block';
+      updateBoxOverlay(boxSelectStart, boxSelectStart);
+      renderer.domElement.setPointerCapture(ev.pointerId);
+      ev.preventDefault();
+      return;
+    }
+  }
+
   if (!ev.shiftKey) return;
   const hit = pickAny(ev);
   if (!hit) return;
@@ -1079,6 +1954,15 @@ renderer.domElement.addEventListener('pointerdown', (ev) => {
     raycaster.ray.intersectPlane(dragPlane, dragPoint);
     dragOffset.copy(bucket.group.position).sub(dragPoint);
     renderer.domElement.setPointerCapture(ev.pointerId);
+  } else if (hit.type === 'region') {
+    const region = regions.get(hit.id);
+    dragging = { type: 'region', obj: region };
+    controls.enabled = false;
+    dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), region.group.position);
+    raycaster.setFromCamera(pointer, camera);
+    raycaster.ray.intersectPlane(dragPlane, dragPoint);
+    dragOffset.copy(region.group.position).sub(dragPoint);
+    renderer.domElement.setPointerCapture(ev.pointerId);
   } else if (hit.type === 'thing') {
     const thing = things.get(hit.id);
     dragging = { type: 'thing', obj: thing, startCardId: thing.cardId, startPos: thing.position.slice() };
@@ -1103,6 +1987,10 @@ renderer.domElement.addEventListener('pointermove', (ev) => {
     const dx = ev.clientX - pointerDownPos.x;
     const dy = ev.clientY - pointerDownPos.y;
     if (dx * dx + dy * dy > 9) pointerMoved = true;
+  }
+  if (boxSelectStart) {
+    updateBoxOverlay(boxSelectStart, { x: ev.clientX, y: ev.clientY });
+    return;
   }
   if (!dragging) return;
   setPointer(ev);
@@ -1167,6 +2055,16 @@ renderer.domElement.addEventListener('pointermove', (ev) => {
       const previewColor = newHover ? buckets.get(newHover).color : null;
       drawCard(card, { selected: isSelected('card', card.id), accentOverride: previewColor });
     }
+
+    // region highlight: only when not landing in a bucket
+    const overRegion = !overBucket ? findRegionContaining(card.position[0], card.position[2], card.regionId) : null;
+    const newRegionHover = overRegion ? overRegion.id : null;
+    if (newRegionHover !== hoveredRegionId) {
+      const prev = hoveredRegionId;
+      hoveredRegionId = newRegionHover;
+      if (prev && regions.has(prev)) applyRegionVisualState(regions.get(prev));
+      if (newRegionHover && regions.has(newRegionHover)) applyRegionVisualState(regions.get(newRegionHover));
+    }
   } else if (dragging.type === 'bucket') {
     const bucket = dragging.obj;
     const oldPos = bucket.group.position.clone();
@@ -1199,6 +2097,11 @@ renderer.domElement.addEventListener('pointermove', (ev) => {
       if (newPushed && buckets.has(newPushed)) applyBucketVisualState(buckets.get(newPushed));
     }
 
+    // collision: push out of any non-nested bucket overlap
+    const resolvedB = resolveBucketOverlap(bucket, target.x, target.z);
+    target.x = resolvedB.x;
+    target.z = resolvedB.z;
+
     // translate bucket + entire descendant subtree by delta
     const delta = new THREE.Vector3().subVectors(target, oldPos);
     if (delta.lengthSq() > 0) translateBucketTree(bucket, delta);
@@ -1216,6 +2119,26 @@ renderer.domElement.addEventListener('pointermove', (ev) => {
       if (prevHover && buckets.has(prevHover)) applyBucketVisualState(buckets.get(prevHover));
       if (newHover && buckets.has(newHover)) applyBucketVisualState(buckets.get(newHover));
     }
+
+    // region highlight: only when not nesting into a parent bucket
+    const overRegion = !candidate ? findRegionContaining(bucket.position[0], bucket.position[2], bucket.regionId) : null;
+    const newRegionHover = overRegion ? overRegion.id : null;
+    if (newRegionHover !== hoveredRegionId) {
+      const prev = hoveredRegionId;
+      hoveredRegionId = newRegionHover;
+      if (prev && regions.has(prev)) applyRegionVisualState(regions.get(prev));
+      if (newRegionHover && regions.has(newRegionHover)) applyRegionVisualState(regions.get(newRegionHover));
+    }
+  } else if (dragging.type === 'region') {
+    const region = dragging.obj;
+    const target = new THREE.Vector3().copy(dragPoint).add(dragOffset);
+    target.y = 0;
+    // collision: push out of any other region's AABB
+    const resolvedR = resolveRegionOverlap(region, target.x, target.z);
+    target.x = resolvedR.x;
+    target.z = resolvedR.z;
+    const delta = new THREE.Vector3().subVectors(target, region.group.position);
+    if (delta.lengthSq() > 0) translateRegion(region, delta);
   } else if (dragging.type === 'thing') {
     const thing = dragging.obj;
     const target = new THREE.Vector3().copy(dragPoint).add(dragOffset);
@@ -1241,6 +2164,22 @@ renderer.domElement.addEventListener('pointermove', (ev) => {
 
 renderer.domElement.addEventListener('pointerup', (ev) => {
   if (ev.button !== 0) return;
+  if (boxSelectStart) {
+    const cur = { x: ev.clientX, y: ev.clientY };
+    const x1 = Math.min(boxSelectStart.x, cur.x);
+    const y1 = Math.min(boxSelectStart.y, cur.y);
+    const x2 = Math.max(boxSelectStart.x, cur.x);
+    const y2 = Math.max(boxSelectStart.y, cur.y);
+    const keys = (Math.abs(cur.x - boxSelectStart.x) >= 3 && Math.abs(cur.y - boxSelectStart.y) >= 3)
+      ? itemsInBox(x1, y1, x2, y2) : [];
+    applyBoxSelectionResult(keys);
+    boxSelectStart = null;
+    boxOverlay.style.display = 'none';
+    controls.enabled = true;
+    try { renderer.domElement.releasePointerCapture(ev.pointerId); } catch (e) {}
+    pointerDownPos = null;
+    return;
+  }
   if (dragging) {
     if (dragging.type === 'card') {
       const card = dragging.obj;
@@ -1249,17 +2188,32 @@ renderer.domElement.addEventListener('pointerup', (ev) => {
       const oldBucketId = card.bucketId;
       card.bucketId = newBucketId;
 
+      // region: only if not in a bucket
+      let newRegionId = null;
+      if (!newBucketId) {
+        const inR = findRegionContaining(card.position[0], card.position[2], card.regionId);
+        if (inR) newRegionId = inR.id;
+      }
+      const oldRegionId = card.regionId;
+      card.regionId = newRegionId;
+
       // clear all drag highlights
       const prevHover = hoveredBucketId;
       const prevPushed = pushedBucketId;
+      const prevRegionHover = hoveredRegionId;
       hoveredBucketId = null;
       pushedBucketId = null;
+      hoveredRegionId = null;
       if (prevHover && buckets.has(prevHover)) applyBucketVisualState(buckets.get(prevHover));
       if (prevPushed && prevPushed !== prevHover && buckets.has(prevPushed)) applyBucketVisualState(buckets.get(prevPushed));
+      if (prevRegionHover && regions.has(prevRegionHover)) applyRegionVisualState(regions.get(prevRegionHover));
 
       // re-layout affected buckets (snap card into orbit slot; regrow/shrink)
       if (oldBucketId && oldBucketId !== newBucketId && buckets.has(oldBucketId)) refreshBucket(buckets.get(oldBucketId));
       if (newBucketId && buckets.has(newBucketId)) refreshBucket(buckets.get(newBucketId));
+      // refresh affected regions
+      if (oldRegionId && oldRegionId !== newRegionId && regions.has(oldRegionId)) refreshRegion(regions.get(oldRegionId));
+      if (newRegionId && regions.has(newRegionId)) refreshRegion(regions.get(newRegionId));
 
       drawCard(card);
       if (isSelected('card', card.id)) renderSidebar();
@@ -1274,18 +2228,35 @@ renderer.domElement.addEventListener('pointerup', (ev) => {
       const oldParentId = bucket.parentId;
       bucket.parentId = newParentId;
 
+      // region: only if no parent bucket
+      let newRegionId = null;
+      if (!newParentId) {
+        const inR = findRegionContaining(bucket.position[0], bucket.position[2], bucket.regionId);
+        if (inR) newRegionId = inR.id;
+      }
+      const oldRegionId = bucket.regionId;
+      bucket.regionId = newRegionId;
+
       // clear drag highlights
       const prevHover = hoveredBucketId;
       const prevPushed = pushedBucketId;
+      const prevRegionHover = hoveredRegionId;
       hoveredBucketId = null;
       pushedBucketId = null;
+      hoveredRegionId = null;
       if (prevHover && buckets.has(prevHover)) applyBucketVisualState(buckets.get(prevHover));
       if (prevPushed && prevPushed !== prevHover && buckets.has(prevPushed)) applyBucketVisualState(buckets.get(prevPushed));
+      if (prevRegionHover && regions.has(prevRegionHover)) applyRegionVisualState(regions.get(prevRegionHover));
 
       // re-layout affected ancestors (snap bucket into its parent's orbit; regrow/shrink)
       if (oldParentId && oldParentId !== newParentId && buckets.has(oldParentId)) refreshBucket(buckets.get(oldParentId));
       if (newParentId && buckets.has(newParentId)) refreshBucket(buckets.get(newParentId));
+      if (oldRegionId && oldRegionId !== newRegionId && regions.has(oldRegionId)) refreshRegion(regions.get(oldRegionId));
+      if (newRegionId && regions.has(newRegionId)) refreshRegion(regions.get(newRegionId));
       if (isSelected('bucket', bucket.id)) renderSidebar();
+    } else if (dragging.type === 'region') {
+      const region = dragging.obj;
+      if (isSelected('region', region.id)) renderSidebar();
     } else if (dragging.type === 'thing') {
       const thing = dragging.obj;
       // find card under cursor for attachment
@@ -1452,9 +2423,16 @@ const sidebarBody = document.getElementById('sidebar-body');
 const sidebarFooter = document.getElementById('sidebar-footer');
 
 function renderSidebar() {
+  const deleteBtn = document.getElementById('delete-btn');
+  if (typeof boxSelection !== 'undefined' && boxSelection.size > 0 && !selection) {
+    renderMultiSelectSidebar();
+    if (deleteBtn) deleteBtn.textContent = `Delete ${boxSelection.size}`;
+    return;
+  }
+  if (deleteBtn) deleteBtn.textContent = 'Delete';
   if (!selection) {
     sidebarTitle.textContent = 'Selection';
-    sidebarBody.innerHTML = `<div class="empty">Nothing selected.<br/>Click a card, bucket, or thing to edit it.</div>`;
+    sidebarBody.innerHTML = `<div class="empty">Nothing selected.<br/>Click a card, bucket, region, or thing to edit it.<br/><br/><span style="font-size:11px;">Ctrl+drag on empty space to box-select multiple items.</span></div>`;
     sidebarFooter.style.display = 'none';
     return;
   }
@@ -1462,7 +2440,55 @@ function renderSidebar() {
   sidebarFooter.style.display = 'flex';
   if (selection.type === 'card') renderCardSidebar(cards.get(selection.id));
   else if (selection.type === 'bucket') renderBucketSidebar(buckets.get(selection.id));
+  else if (selection.type === 'region') renderRegionSidebar(regions.get(selection.id));
   else if (selection.type === 'thing') renderThingSidebar(things.get(selection.id));
+}
+
+function renderMultiSelectSidebar() {
+  sidebarTitle.textContent = `${boxSelection.size} selected`;
+  sidebarFooter.style.display = 'flex';
+  sidebarBody.innerHTML = '';
+  const counts = { card: 0, bucket: 0, region: 0, thing: 0 };
+  const rows = [];
+  for (const key of boxSelection) {
+    const { type, id } = parseSelectionKey(key);
+    counts[type] = (counts[type] || 0) + 1;
+    let label = '';
+    if (type === 'card') label = cards.get(id)?.title || 'Untitled card';
+    else if (type === 'bucket') label = buckets.get(id)?.name || 'Untitled bucket';
+    else if (type === 'region') label = regions.get(id)?.name || 'Untitled region';
+    else if (type === 'thing') label = things.get(id)?.title || 'Untitled thing';
+    rows.push({ type, id, label });
+  }
+  const wrap = document.createElement('div');
+  wrap.className = 'selection-summary';
+  const top = document.createElement('div');
+  top.style.fontSize = '12px';
+  top.style.color = 'var(--muted)';
+  top.textContent = 'Box selection — mass delete needs three confirmations.';
+  wrap.appendChild(top);
+  const counts_el = document.createElement('div');
+  counts_el.className = 'counts';
+  for (const t of Object.keys(counts)) {
+    if (!counts[t]) continue;
+    const chip = document.createElement('span');
+    chip.className = 'count-chip';
+    chip.textContent = `${counts[t]} ${t}${counts[t] !== 1 ? 's' : ''}`;
+    counts_el.appendChild(chip);
+  }
+  wrap.appendChild(counts_el);
+  const list = document.createElement('div');
+  list.className = 'list';
+  for (const r of rows) {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = `<span class="type">${r.type}</span><span>${escapeHtml(r.label)}</span>`;
+    row.title = 'Click to select this item alone';
+    row.addEventListener('click', () => select(r.type, r.id));
+    list.appendChild(row);
+  }
+  wrap.appendChild(list);
+  sidebarBody.appendChild(wrap);
 }
 
 function renderCardSidebar(card) {
@@ -1502,12 +2528,34 @@ function renderCardSidebar(card) {
     bucketRow.innerHTML = `<span class="meta">— none — drop the card inside a bucket to group it</span>`;
   }
 
+  const regionLabel = document.createElement('label');
+  regionLabel.textContent = 'Region';
+  const regionRow = document.createElement('div');
+  if (card.regionId && regions.has(card.regionId)) {
+    const r = regions.get(card.regionId);
+    const pill = document.createElement('span');
+    pill.className = 'bucket-pill';
+    pill.innerHTML = `<span class="dot" style="background:${r.color}"></span>${escapeHtml(r.name)}`;
+    pill.addEventListener('click', () => select('region', r.id));
+    regionRow.appendChild(pill);
+  } else {
+    regionRow.innerHTML = `<span class="meta">— none — drop the card inside a region to group it</span>`;
+  }
+
   const meta = document.createElement('div');
   meta.className = 'meta';
   const [x, y, z] = card.position.map(n => n.toFixed(2));
   meta.textContent = `Position: (${x}, ${y}, ${z})`;
 
-  sidebarBody.append(titleLabel, titleInput, descLabel, descInput, bucketLabel, bucketRow);
+  sidebarBody.append(titleLabel, titleInput, descLabel, descInput, bucketLabel, bucketRow, regionLabel, regionRow);
+
+  sidebarBody.append(renderCardBadgesSection(card));
+
+  if (card.world === 'main') {
+    sidebarBody.append(renderCardAccomplishmentsSection(card));
+  } else if (card.world === 'accomplishments') {
+    sidebarBody.append(renderAccomplishmentBacklinksSection(card));
+  }
 
   // Attached things
   const attached = thingsAttachedTo(card.id);
@@ -1638,6 +2686,24 @@ function renderBucketSidebar(bucket) {
     sidebarBody.append(parentLabel, parentRow);
   }
 
+  // Region (only for top-level buckets)
+  if (!bucket.parentId) {
+    const regionLabel = document.createElement('label');
+    regionLabel.textContent = 'Region';
+    const regionRow = document.createElement('div');
+    if (bucket.regionId && regions.has(bucket.regionId)) {
+      const r = regions.get(bucket.regionId);
+      const pill = document.createElement('span');
+      pill.className = 'bucket-pill';
+      pill.innerHTML = `<span class="dot" style="background:${r.color}"></span>${escapeHtml(r.name)}`;
+      pill.addEventListener('click', () => select('region', r.id));
+      regionRow.appendChild(pill);
+    } else {
+      regionRow.innerHTML = `<span class="meta">— none — drag this bucket into a region to group it</span>`;
+    }
+    sidebarBody.append(regionLabel, regionRow);
+  }
+
   // Child buckets (if depth allows)
   const childBuckets = bucketChildrenOf(bucket.id);
   const canHaveChildren = depthOf(bucket.id) < MAX_NEST_DEPTH;
@@ -1704,6 +2770,379 @@ function setBucketColor(bucket, color) {
   save();
 }
 
+function renderRegionSidebar(region) {
+  if (!region) return;
+  sidebarTitle.textContent = 'Region';
+
+  const nameLabel = document.createElement('label');
+  nameLabel.textContent = 'Name';
+  const nameInput = document.createElement('input');
+  nameInput.value = region.name;
+  nameInput.addEventListener('input', () => {
+    region.name = nameInput.value;
+    drawRegionLabel(region);
+    save();
+  });
+
+  const colorLabel = document.createElement('label');
+  colorLabel.textContent = 'Color';
+  const swatches = document.createElement('div');
+  swatches.className = 'swatches';
+  for (const c of REGION_PALETTE) {
+    const s = document.createElement('div');
+    s.className = 'swatch' + (c.toLowerCase() === region.color.toLowerCase() ? ' active' : '');
+    s.style.background = c;
+    s.addEventListener('click', () => setRegionColor(region, c));
+    swatches.appendChild(s);
+  }
+
+  sidebarBody.append(nameLabel, nameInput, colorLabel, swatches);
+
+  const m = regionMembers(region.id);
+  const bLabel = document.createElement('label');
+  bLabel.textContent = `Buckets (${m.buckets.length})`;
+  const bList = document.createElement('div');
+  bList.style.display = 'flex';
+  bList.style.flexDirection = 'column';
+  bList.style.gap = '4px';
+  if (m.buckets.length === 0) {
+    bList.innerHTML = `<span class="meta">No buckets yet — drag one inside this region.</span>`;
+  } else {
+    for (const b of m.buckets) {
+      const row = document.createElement('div');
+      row.className = 'bucket-pill';
+      row.style.borderRadius = '6px';
+      row.innerHTML = `<span class="dot" style="background:${b.color}"></span>${escapeHtml(b.name)}`;
+      row.addEventListener('click', () => select('bucket', b.id));
+      bList.appendChild(row);
+    }
+  }
+  sidebarBody.append(bLabel, bList);
+
+  const cLabel = document.createElement('label');
+  cLabel.textContent = `Loose cards (${m.cards.length})`;
+  const cList = document.createElement('div');
+  cList.style.display = 'flex';
+  cList.style.flexDirection = 'column';
+  cList.style.gap = '4px';
+  if (m.cards.length === 0) {
+    cList.innerHTML = `<span class="meta">No bare cards — drag a card (not in a bucket) inside to group it.</span>`;
+  } else {
+    for (const c of m.cards) {
+      const row = document.createElement('div');
+      row.className = 'bucket-pill';
+      row.style.borderRadius = '6px';
+      row.innerHTML = `<span class="dot" style="background:${region.color}"></span>${escapeHtml(c.title || 'Untitled')}`;
+      row.addEventListener('click', () => select('card', c.id));
+      cList.appendChild(row);
+    }
+  }
+  sidebarBody.append(cLabel, cList);
+
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  const [x, , z] = region.position.map(n => n.toFixed(2));
+  meta.textContent = `Center (${x}, ${z}) · size ${region.width.toFixed(1)} × ${region.depth.toFixed(1)}`;
+  sidebarBody.append(meta);
+
+  if (region.name === 'New region') { nameInput.focus(); nameInput.select(); }
+}
+
+function setRegionColor(region, color) {
+  region.color = color;
+  region.wallMat.uniforms.uColor.value.set(color);
+  region.frameMat.color.set(color);
+  applyRegionVisualState(region);
+  renderSidebar();
+  save();
+}
+
+function renderCardBadgesSection(card) {
+  const wrap = document.createElement('div');
+  wrap.style.display = 'flex';
+  wrap.style.flexDirection = 'column';
+  wrap.style.gap = '6px';
+
+  const applied = (card.badgeIds || []).map(id => badges.get(id)).filter(Boolean);
+  const lbl = document.createElement('label');
+  lbl.textContent = `Badges (${applied.length})`;
+  wrap.appendChild(lbl);
+
+  const appliedRow = document.createElement('div');
+  appliedRow.className = 'badge-row';
+  if (applied.length === 0) {
+    const empty = document.createElement('span');
+    empty.className = 'meta';
+    empty.textContent = 'No badges applied.';
+    appliedRow.appendChild(empty);
+  } else {
+    for (const b of applied) {
+      const chip = document.createElement('span');
+      chip.className = 'badge-chip';
+      chip.style.background = b.color;
+      const txt = document.createElement('span');
+      txt.textContent = b.label;
+      const close = document.createElement('span');
+      close.className = 'x';
+      close.textContent = '×';
+      close.title = 'Remove from this card';
+      close.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        removeBadgeFromCard(card.id, b.id);
+        renderSidebar();
+      });
+      chip.append(txt, close);
+      appliedRow.appendChild(chip);
+    }
+  }
+  wrap.appendChild(appliedRow);
+
+  const available = [...badges.values()].filter(b => !applied.includes(b));
+  if (available.length > 0) {
+    const avLabel = document.createElement('div');
+    avLabel.className = 'meta';
+    avLabel.style.marginTop = '4px';
+    avLabel.textContent = 'Available — click to apply:';
+    wrap.appendChild(avLabel);
+
+    const avRow = document.createElement('div');
+    avRow.className = 'badge-row';
+    for (const b of available) {
+      const chip = document.createElement('span');
+      chip.className = 'badge-chip subtle';
+      const dot = document.createElement('span');
+      dot.className = 'dot';
+      dot.style.background = b.color;
+      const txt = document.createElement('span');
+      txt.textContent = b.label;
+      chip.append(dot, txt);
+      chip.title = `Apply "${b.label}" to this card`;
+      chip.addEventListener('click', () => {
+        applyBadgeToCard(card.id, b.id);
+        renderSidebar();
+      });
+      const del = document.createElement('span');
+      del.className = 'x';
+      del.textContent = '×';
+      del.title = 'Delete this badge (removes from all cards)';
+      del.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const usedBy = [...cards.values()].filter(c => c.badgeIds && c.badgeIds.includes(b.id)).length;
+        const msg = usedBy > 0
+          ? `Delete badge "${b.label}"? It is applied to ${usedBy} card${usedBy !== 1 ? 's' : ''} and will be removed from all of them.`
+          : `Delete badge "${b.label}"?`;
+        if (confirm(msg)) {
+          deleteBadge(b.id);
+          renderSidebar();
+        }
+      });
+      chip.appendChild(del);
+      avRow.appendChild(chip);
+    }
+    wrap.appendChild(avRow);
+  }
+
+  // + Create badge inline form
+  const createBtn = document.createElement('button');
+  createBtn.textContent = '+ Create badge';
+  createBtn.style.alignSelf = 'flex-start';
+  createBtn.style.marginTop = '4px';
+
+  const form = document.createElement('div');
+  form.className = 'badge-form';
+
+  const formLabelL = document.createElement('label');
+  formLabelL.textContent = 'Label';
+  const formInput = document.createElement('input');
+  formInput.maxLength = BADGE_MAX_LABEL;
+  formInput.placeholder = 'e.g. Urgent';
+
+  const formLabelC = document.createElement('label');
+  formLabelC.textContent = 'Color';
+  const formSwatches = document.createElement('div');
+  formSwatches.className = 'swatches';
+  let selectedColor = BADGE_PALETTE[badges.size % BADGE_PALETTE.length];
+  function renderFormSwatches() {
+    formSwatches.innerHTML = '';
+    for (const c of BADGE_PALETTE) {
+      const s = document.createElement('div');
+      s.className = 'swatch' + (c === selectedColor ? ' active' : '');
+      s.style.background = c;
+      s.addEventListener('click', () => { selectedColor = c; renderFormSwatches(); });
+      formSwatches.appendChild(s);
+    }
+  }
+  renderFormSwatches();
+
+  const formBtns = document.createElement('div');
+  formBtns.style.display = 'flex';
+  formBtns.style.gap = '6px';
+  const createSubmit = document.createElement('button');
+  createSubmit.textContent = 'Create';
+  createSubmit.classList.add('primary');
+  const createCancel = document.createElement('button');
+  createCancel.textContent = 'Cancel';
+  formBtns.append(createSubmit, createCancel);
+
+  form.append(formLabelL, formInput, formLabelC, formSwatches, formBtns);
+
+  createBtn.addEventListener('click', () => {
+    form.style.display = 'flex';
+    createBtn.style.display = 'none';
+    formInput.value = '';
+    formInput.focus();
+  });
+  createCancel.addEventListener('click', () => {
+    form.style.display = 'none';
+    createBtn.style.display = '';
+  });
+  function submitCreate() {
+    const label = (formInput.value || '').trim() || 'Badge';
+    const badge = createBadge({ label, color: selectedColor });
+    applyBadgeToCard(card.id, badge.id);
+    renderSidebar();
+  }
+  createSubmit.addEventListener('click', submitCreate);
+  formInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); submitCreate(); }
+    if (e.key === 'Escape') { e.preventDefault(); createCancel.click(); }
+  });
+
+  wrap.append(createBtn, form);
+  return wrap;
+}
+
+function renderAccomplishmentBacklinksSection(acc) {
+  const wrap = document.createElement('div');
+  wrap.style.display = 'flex';
+  wrap.style.flexDirection = 'column';
+  wrap.style.gap = '6px';
+  const linkers = [...cards.values()].filter(c => c.world === 'main' && (c.accomplishmentIds || []).includes(acc.id));
+  const lbl = document.createElement('label');
+  lbl.textContent = `Linked from Main (${linkers.length})`;
+  lbl.style.color = '#ffd700';
+  wrap.appendChild(lbl);
+  const row = document.createElement('div');
+  row.className = 'badge-row';
+  if (linkers.length === 0) {
+    const empty = document.createElement('span');
+    empty.className = 'meta';
+    empty.textContent = 'Not yet linked from any main-world card.';
+    row.appendChild(empty);
+  } else {
+    for (const m of linkers) {
+      const chip = document.createElement('span');
+      chip.className = 'badge-chip subtle';
+      const dot = document.createElement('span');
+      dot.className = 'dot';
+      dot.style.background = '#4f8cff';
+      const txt = document.createElement('span');
+      txt.textContent = m.title || 'Untitled';
+      chip.append(dot, txt);
+      chip.title = `Jump to "${m.title || 'Untitled'}" in Main`;
+      chip.style.cursor = 'pointer';
+      chip.addEventListener('click', () => {
+        if (m.world !== currentWorld) setWorld(m.world);
+        select('card', m.id);
+        const target = m.mesh.position.clone();
+        controls.target.copy(target);
+        const dir = new THREE.Vector3().subVectors(camera.position, target).normalize();
+        camera.position.copy(target).add(dir.multiplyScalar(8));
+      });
+      row.appendChild(chip);
+    }
+  }
+  wrap.appendChild(row);
+  return wrap;
+}
+
+function renderCardAccomplishmentsSection(card) {
+  const wrap = document.createElement('div');
+  wrap.style.display = 'flex';
+  wrap.style.flexDirection = 'column';
+  wrap.style.gap = '6px';
+
+  const linkedIds = (card.accomplishmentIds || []).filter(id => cards.has(id) && cards.get(id).world === 'accomplishments');
+  const lbl = document.createElement('label');
+  lbl.textContent = `★ Linked accomplishments (${linkedIds.length})`;
+  lbl.style.color = '#ffd700';
+  wrap.appendChild(lbl);
+
+  const linkedRow = document.createElement('div');
+  linkedRow.className = 'badge-row';
+  if (linkedIds.length === 0) {
+    const empty = document.createElement('span');
+    empty.className = 'meta';
+    empty.textContent = 'Not yet linked to any accomplishment.';
+    linkedRow.appendChild(empty);
+  } else {
+    for (const aid of linkedIds) {
+      const acc = cards.get(aid);
+      const chip = document.createElement('span');
+      chip.className = 'badge-chip';
+      chip.style.background = '#7a5a18';
+      chip.style.color = '#ffd700';
+      chip.title = `Jump to "${acc.title || 'Untitled'}" in Accomplishments`;
+      chip.style.cursor = 'pointer';
+      const star = document.createElement('span');
+      star.textContent = '★';
+      const txt = document.createElement('span');
+      txt.textContent = acc.title || 'Untitled';
+      chip.append(star, txt);
+      chip.addEventListener('click', () => jumpToAccomplishment(aid));
+      const close = document.createElement('span');
+      close.className = 'x';
+      close.textContent = '×';
+      close.title = 'Unlink';
+      close.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        unlinkAccomplishmentFromCard(card.id, aid);
+        renderSidebar();
+      });
+      chip.append(close);
+      linkedRow.appendChild(chip);
+    }
+  }
+  wrap.appendChild(linkedRow);
+
+  const available = [...cards.values()].filter(c => c.world === 'accomplishments' && !linkedIds.includes(c.id));
+  if (available.length > 0) {
+    const linkLabel = document.createElement('div');
+    linkLabel.className = 'meta';
+    linkLabel.style.marginTop = '4px';
+    linkLabel.textContent = 'Link to accomplishment:';
+    wrap.appendChild(linkLabel);
+
+    const sel = document.createElement('select');
+    sel.style.cssText = 'width:100%;background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font:inherit;font-size:14px;';
+    const ph = document.createElement('option');
+    ph.value = '';
+    ph.textContent = '— pick an accomplishment —';
+    sel.appendChild(ph);
+    for (const acc of available) {
+      const opt = document.createElement('option');
+      opt.value = acc.id;
+      opt.textContent = acc.title || 'Untitled';
+      sel.appendChild(opt);
+    }
+    sel.addEventListener('change', () => {
+      if (!sel.value) return;
+      linkAccomplishmentToCard(card.id, sel.value);
+      renderSidebar();
+    });
+    wrap.appendChild(sel);
+  } else {
+    const hint = document.createElement('div');
+    hint.className = 'meta';
+    hint.textContent = linkedIds.length > 0
+      ? 'All accomplishments are linked here. Create more in the Accomplishments world.'
+      : 'No accomplishments exist yet. Switch to the Accomplishments world to create some.';
+    wrap.appendChild(hint);
+  }
+
+  return wrap;
+}
+
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
 }
@@ -1711,17 +3150,38 @@ function escapeHtml(s) {
 // ============================================================
 // Toolbar / keyboard
 // ============================================================
+document.getElementById('world-toggle-btn').addEventListener('click', () => {
+  setWorld(currentWorld === 'main' ? 'accomplishments' : 'main');
+});
 document.getElementById('add-card-btn').addEventListener('click', () => addCard());
 document.getElementById('add-bucket-btn').addEventListener('click', () => {
   // create as child of selected bucket if applicable, else top-level
   const parentId = selection?.type === 'bucket' ? selection.id : null;
   addBucket({ parentId });
 });
+document.getElementById('add-region-btn').addEventListener('click', () => addRegion());
 document.getElementById('delete-btn').addEventListener('click', () => {
+  if (boxSelection.size > 0) { massDelete(); return; }
   if (!selection) return;
   if (selection.type === 'card') deleteCard(selection.id);
   else if (selection.type === 'bucket') deleteBucket(selection.id);
+  else if (selection.type === 'region') deleteRegion(selection.id);
   else if (selection.type === 'thing') deleteThing(selection.id);
+});
+document.getElementById('undo-btn').addEventListener('click', () => undo());
+document.getElementById('redo-btn').addEventListener('click', () => redo());
+document.getElementById('restore-btn').addEventListener('click', (ev) => {
+  ev.stopPropagation();
+  const menu = document.getElementById('restore-menu');
+  if (menu.style.display === 'flex') menu.style.display = 'none';
+  else showRestoreMenu();
+});
+document.addEventListener('click', (ev) => {
+  const menu = document.getElementById('restore-menu');
+  if (!menu || menu.style.display !== 'flex') return;
+  if (ev.target.id === 'restore-btn') return;
+  if (menu.contains(ev.target)) return;
+  menu.style.display = 'none';
 });
 document.getElementById('add-thing-btn').addEventListener('click', () => addThing());
 document.getElementById('focus-btn').addEventListener('click', focusSelected);
@@ -1743,6 +3203,11 @@ function focusSelected() {
     if (!t) return;
     target = t.mesh.position.clone();
     distance = 5;
+  } else if (selection.type === 'region') {
+    const r = regions.get(selection.id);
+    if (!r) return;
+    target = r.group.position.clone(); target.y = REGION_HEIGHT / 2;
+    distance = Math.max(r.width, r.depth) * 1.4;
   } else {
     const b = buckets.get(selection.id);
     if (!b) return;
@@ -1757,10 +3222,25 @@ function focusSelected() {
 document.addEventListener('keydown', (ev) => {
   if (ev.target.matches('input, textarea, select')) return;
   if (fpsMode) return;
-  if ((ev.key === 'Delete' || ev.key === 'Backspace') && selection) {
-    if (selection.type === 'card') deleteCard(selection.id);
-    else if (selection.type === 'bucket') deleteBucket(selection.id);
-    else if (selection.type === 'thing') deleteThing(selection.id);
+  if ((ev.key === 'Delete' || ev.key === 'Backspace')) {
+    if (boxSelection.size > 0) { massDelete(); ev.preventDefault(); }
+    else if (selection) {
+      if (selection.type === 'card') deleteCard(selection.id);
+      else if (selection.type === 'bucket') deleteBucket(selection.id);
+      else if (selection.type === 'region') deleteRegion(selection.id);
+      else if (selection.type === 'thing') deleteThing(selection.id);
+      ev.preventDefault();
+    }
+  }
+  if (ev.key === 'Escape') {
+    if (boxSelection.size > 0) { clearBoxSelection(); ev.preventDefault(); }
+    else if (selection) { select(null); ev.preventDefault(); }
+  }
+  if ((ev.ctrlKey || ev.metaKey) && (ev.key === 'z' || ev.key === 'Z')) {
+    if (ev.shiftKey) redo(); else undo();
+    ev.preventDefault();
+  } else if ((ev.ctrlKey || ev.metaKey) && (ev.key === 'y' || ev.key === 'Y')) {
+    redo();
     ev.preventDefault();
   }
   if (ev.key === 'f' && selection) focusSelected();
@@ -1770,23 +3250,57 @@ document.addEventListener('keydown', (ev) => {
 // Persistence
 // ============================================================
 const STORAGE_KEY = 'obelisk.v2';
+const BACKUP_KEYS = [STORAGE_KEY + '.bak.1', STORAGE_KEY + '.bak.2', STORAGE_KEY + '.bak.3'];
+const BACKUP_MIN_INTERVAL_MS = 10000;
 let saveTimer = null;
+let lastBackupAt = 0;
+let isApplyingHistory = false;
+
+function buildStateData() {
+  return {
+    savedAt: new Date().toISOString(),
+    currentWorld,
+    cards: [...cards.values()].map(c => ({
+      id: c.id, title: c.title, description: c.description, position: c.position, bucketId: c.bucketId || null, regionId: c.regionId || null, badgeIds: c.badgeIds || [], accomplishmentIds: c.accomplishmentIds || [], world: c.world || 'main',
+    })),
+    buckets: [...buckets.values()].map(b => ({
+      id: b.id, name: b.name, position: b.position, radius: b.radius, baseRadius: b.baseRadius, color: b.color, parentId: b.parentId || null, regionId: b.regionId || null, world: b.world || 'main',
+    })),
+    regions: [...regions.values()].map(r => ({
+      id: r.id, name: r.name, position: r.position, width: r.width, depth: r.depth, color: r.color, world: r.world || 'main',
+    })),
+    badges: [...badges.values()].map(b => ({ id: b.id, label: b.label, color: b.color, world: b.world || 'main' })),
+    things: [...things.values()].map(t => ({
+      id: t.id, title: t.title, description: t.description, type: t.type, position: t.position, cardId: t.cardId || null, world: t.world || 'main',
+    })),
+  };
+}
+
+function rotateBackups() {
+  const now = Date.now();
+  if (now - lastBackupAt < BACKUP_MIN_INTERVAL_MS) return;
+  const current = localStorage.getItem(STORAGE_KEY);
+  if (!current) return;
+  try {
+    const b1 = localStorage.getItem(BACKUP_KEYS[0]);
+    const b2 = localStorage.getItem(BACKUP_KEYS[1]);
+    if (b2) localStorage.setItem(BACKUP_KEYS[2], b2);
+    if (b1) localStorage.setItem(BACKUP_KEYS[1], b1);
+    localStorage.setItem(BACKUP_KEYS[0], current);
+    lastBackupAt = now;
+  } catch (e) { /* ignore quota etc. */ }
+}
+
 function save() {
   clearTimeout(saveTimer);
+  const skipMaintenance = isApplyingHistory;
   saveTimer = setTimeout(() => {
-    const data = {
-      cards: [...cards.values()].map(c => ({
-        id: c.id, title: c.title, description: c.description, position: c.position, bucketId: c.bucketId || null,
-      })),
-      buckets: [...buckets.values()].map(b => ({
-        id: b.id, name: b.name, position: b.position, radius: b.radius, baseRadius: b.baseRadius, color: b.color, parentId: b.parentId || null,
-      })),
-      things: [...things.values()].map(t => ({
-        id: t.id, title: t.title, description: t.description, type: t.type, position: t.position, cardId: t.cardId || null,
-      })),
-    };
+    if (!skipMaintenance) rotateBackups();
+    const data = buildStateData();
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) {}
+    if (!skipMaintenance) scheduleHistorySnapshot();
   }, 200);
+  if (typeof scheduleAutosave === 'function') scheduleAutosave();
 }
 
 function load() {
@@ -1794,44 +3308,253 @@ function load() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return false;
     const data = JSON.parse(raw);
-    const bucketList = data.buckets || [];
-    const cardList = data.cards || [];
-    const thingList = data.things || [];
-    if (bucketList.length === 0 && cardList.length === 0 && thingList.length === 0) return false;
-    for (const b of bucketList) {
-      const radius = b.radius || BUCKET_DEFAULT_RADIUS;
-      const baseRadius = b.baseRadius || radius;
-      const bucket = { id: b.id, name: b.name, position: b.position, baseRadius, radius, color: b.color || BUCKET_PALETTE[0], parentId: b.parentId || null };
-      scene.add(createBucketObjects(bucket));
-      buckets.set(bucket.id, bucket);
-    }
-    validateBucketParents();
-    for (const c of cardList) {
-      const pos = [c.position[0], CARD_ALTITUDE, c.position[2]];
-      const bucketId = (c.bucketId && buckets.has(c.bucketId)) ? c.bucketId : null;
-      const card = { id: c.id, title: c.title, description: c.description, position: pos, bucketId };
-      scene.add(createCardMesh(card));
-      cards.set(card.id, card);
-    }
-    refreshAll();
-    for (const t of thingList) {
-      if (!t || !Array.isArray(t.position)) continue;
-      const cardId = (t.cardId && cards.has(t.cardId)) ? t.cardId : null;
-      const thing = {
-        id: t.id || crypto.randomUUID(),
-        title: t.title || '',
-        description: t.description || '',
-        type: THING_TYPES[t.type] ? t.type : 'person',
-        position: [t.position[0] || 0, CARD_ALTITUDE, t.position[2] || 0],
-        cardId,
-      };
-      scene.add(createThingMesh(thing));
-      things.set(thing.id, thing);
-    }
-    for (const c of cards.values()) layoutThingsAroundCard(c);
-    updatePalette();
+    const empty =
+      (data.buckets || []).length === 0 &&
+      (data.cards || []).length === 0 &&
+      (data.regions || []).length === 0 &&
+      (data.badges || []).length === 0 &&
+      (data.things || []).length === 0;
+    if (empty) return false;
+    applyStateData(data);
     return true;
   } catch (e) { return false; }
+}
+
+// ============================================================
+// Undo / redo (history of state snapshots)
+// ============================================================
+const history = []; // array of JSON-stringified state snapshots
+let historyIndex = -1;
+const HISTORY_MAX = 60;
+const HISTORY_DEBOUNCE_MS = 800;
+let historyTimer = null;
+
+function pushHistorySnapshot() {
+  if (isApplyingHistory) return;
+  const snap = JSON.stringify(buildStateData());
+  if (history.length > 0 && history[historyIndex] === snap) return;
+  history.length = historyIndex + 1; // truncate redo
+  history.push(snap);
+  if (history.length > HISTORY_MAX) history.shift();
+  else historyIndex++;
+  updateUndoRedoUI();
+}
+
+function scheduleHistorySnapshot(immediate = false) {
+  if (isApplyingHistory) return;
+  clearTimeout(historyTimer);
+  if (immediate) pushHistorySnapshot();
+  else historyTimer = setTimeout(pushHistorySnapshot, HISTORY_DEBOUNCE_MS);
+}
+
+function undo() {
+  if (historyIndex <= 0) return;
+  clearTimeout(historyTimer);
+  historyIndex--;
+  applyHistoryAt(historyIndex);
+}
+
+function redo() {
+  if (historyIndex >= history.length - 1) return;
+  clearTimeout(historyTimer);
+  historyIndex++;
+  applyHistoryAt(historyIndex);
+}
+
+function applyHistoryAt(idx) {
+  isApplyingHistory = true;
+  try {
+    const data = JSON.parse(history[idx]);
+    applyStateData(data);
+    // write to localStorage directly, no rotation, no new history snapshot
+    try { localStorage.setItem(STORAGE_KEY, history[idx]); } catch (e) {}
+    if (typeof scheduleAutosave === 'function') scheduleAutosave();
+  } finally {
+    isApplyingHistory = false;
+    updateUndoRedoUI();
+  }
+}
+
+function updateUndoRedoUI() {
+  const undoBtn = document.getElementById('undo-btn');
+  const redoBtn = document.getElementById('redo-btn');
+  if (undoBtn) undoBtn.disabled = historyIndex <= 0;
+  if (redoBtn) redoBtn.disabled = historyIndex >= history.length - 1;
+}
+
+// ============================================================
+// Restore from .bak.N
+// ============================================================
+function fmtAgo(date) {
+  const sec = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.floor(hr / 24);
+  return `${day}d ago`;
+}
+
+function getBackupInfo(n) {
+  const raw = localStorage.getItem(BACKUP_KEYS[n - 1]);
+  if (!raw) return null;
+  try {
+    const d = JSON.parse(raw);
+    const count = (d.cards?.length || 0) + (d.buckets?.length || 0) + (d.regions?.length || 0) + (d.things?.length || 0) + (d.badges?.length || 0);
+    return { n, ts: d.savedAt, count, raw };
+  } catch (e) { return null; }
+}
+
+function showRestoreMenu() {
+  const menu = document.getElementById('restore-menu');
+  if (!menu) return;
+  menu.innerHTML = '';
+  const items = [1, 2, 3].map(getBackupInfo).filter(Boolean);
+  if (items.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty';
+    empty.textContent = 'No backups yet. The previous saved state will appear here.';
+    menu.appendChild(empty);
+  } else {
+    for (const it of items) {
+      const row = document.createElement('div');
+      row.className = 'item';
+      const ago = it.ts ? fmtAgo(new Date(it.ts)) : 'unknown';
+      const tsStr = it.ts ? new Date(it.ts).toLocaleString() : '';
+      row.innerHTML = `<span>.bak.${it.n} <span class="meta">${ago}</span></span><span class="meta">${it.count} items</span>`;
+      row.title = `Saved ${tsStr} — click to restore`;
+      row.addEventListener('click', () => {
+        if (confirm(`Restore from .bak.${it.n}? Your current state will be saved as a fresh backup first.`)) {
+          restoreFromBackup(it.n);
+          menu.style.display = 'none';
+        }
+      });
+      menu.appendChild(row);
+    }
+  }
+  const btn = document.getElementById('restore-btn');
+  const rect = btn.getBoundingClientRect();
+  menu.style.left = rect.left + 'px';
+  menu.style.top = (rect.bottom + 4) + 'px';
+  menu.style.display = 'flex';
+}
+
+function restoreFromBackup(n) {
+  const info = getBackupInfo(n);
+  if (!info) { alert('Backup not found.'); return; }
+  // Force a backup of the current state first so this is itself undoable via .bak
+  lastBackupAt = 0;
+  rotateBackups();
+  try {
+    const data = JSON.parse(info.raw);
+    applyStateData(data);
+    save();
+    scheduleHistorySnapshot(true);
+  } catch (e) { alert('Backup is corrupted: ' + e.message); }
+}
+
+// ============================================================
+// Box selection (Ctrl+drag on empty canvas)
+// ============================================================
+const boxSelection = new Set(); // 'card:id' / 'bucket:id' / etc.
+const boxOverlay = document.getElementById('box-select-overlay');
+let boxSelectStart = null; // {x, y} client coords
+
+function selectionKey(type, id) { return `${type}:${id}`; }
+function parseSelectionKey(key) {
+  const i = key.indexOf(':');
+  return { type: key.slice(0, i), id: key.slice(i + 1) };
+}
+
+function redrawAllVisible() {
+  for (const c of cards.values()) if (c.world === currentWorld) drawCard(c);
+  for (const b of buckets.values()) if (b.world === currentWorld) applyBucketVisualState(b);
+  for (const r of regions.values()) if (r.world === currentWorld) applyRegionVisualState(r);
+  for (const t of things.values()) if (t.world === currentWorld) drawThing(t);
+}
+
+function clearBoxSelection() {
+  if (boxSelection.size === 0) return;
+  boxSelection.clear();
+  redrawAllVisible();
+  renderSidebar();
+}
+
+function updateBoxOverlay(start, current) {
+  const x = Math.min(start.x, current.x);
+  const y = Math.min(start.y, current.y);
+  const w = Math.abs(current.x - start.x);
+  const h = Math.abs(current.y - start.y);
+  boxOverlay.style.left = x + 'px';
+  boxOverlay.style.top = y + 'px';
+  boxOverlay.style.width = w + 'px';
+  boxOverlay.style.height = h + 'px';
+}
+
+function projectToScreen(worldPos) {
+  const v = worldPos.clone().project(camera);
+  if (v.z > 1) return null; // behind camera
+  const rect = renderer.domElement.getBoundingClientRect();
+  return {
+    x: (v.x + 1) / 2 * rect.width + rect.left,
+    y: (-v.y + 1) / 2 * rect.height + rect.top,
+  };
+}
+
+function itemsInBox(x1, y1, x2, y2) {
+  const result = [];
+  const inBox = (p) => p && p.x >= x1 && p.x <= x2 && p.y >= y1 && p.y <= y2;
+  for (const c of cards.values()) {
+    if (c.world !== currentWorld) continue;
+    if (inBox(projectToScreen(c.mesh.position))) result.push(selectionKey('card', c.id));
+  }
+  for (const b of buckets.values()) {
+    if (b.world !== currentWorld) continue;
+    if (inBox(projectToScreen(b.group.position))) result.push(selectionKey('bucket', b.id));
+  }
+  for (const r of regions.values()) {
+    if (r.world !== currentWorld) continue;
+    if (inBox(projectToScreen(r.group.position))) result.push(selectionKey('region', r.id));
+  }
+  for (const t of things.values()) {
+    if (t.world !== currentWorld) continue;
+    if (inBox(projectToScreen(t.mesh.position))) result.push(selectionKey('thing', t.id));
+  }
+  return result;
+}
+
+function applyBoxSelectionResult(keys) {
+  if (keys.length === 0) { clearBoxSelection(); select(null); return; }
+  if (keys.length === 1) {
+    boxSelection.clear();
+    const { type, id } = parseSelectionKey(keys[0]);
+    select(type, id);
+    return;
+  }
+  selection = null;
+  boxSelection.clear();
+  for (const k of keys) boxSelection.add(k);
+  redrawAllVisible();
+  renderSidebar();
+}
+
+function massDelete() {
+  const n = boxSelection.size;
+  if (n === 0) return;
+  if (!confirm(`ARE YOU SURE? You're about to delete ${n} item${n !== 1 ? 's' : ''}.`)) return;
+  if (!confirm('ARE YOU REALLY SURE?')) return;
+  if (!confirm('ARE YOU REALLY REALLY SURE?')) return;
+  const items = [...boxSelection].map(parseSelectionKey);
+  boxSelection.clear();
+  // delete in dependency order: things → cards → buckets → regions
+  for (const it of items.filter(x => x.type === 'thing')) deleteThing(it.id);
+  for (const it of items.filter(x => x.type === 'card')) deleteCard(it.id);
+  for (const it of items.filter(x => x.type === 'bucket')) deleteBucket(it.id);
+  for (const it of items.filter(x => x.type === 'region')) deleteRegion(it.id);
+  selection = null;
+  renderSidebar();
+  scheduleHistorySnapshot(true);
 }
 
 // ============================================================
@@ -1842,20 +3565,22 @@ let paletteDrag = null; // { thingId, startX, startY, isDragging, startPos, star
 
 function updatePalette() {
   paletteStrip.innerHTML = '';
-  if (things.size === 0) {
+  const worldThings = [...things.values()].filter(t => t.world === currentWorld);
+  if (worldThings.length === 0) {
     const empty = document.createElement('span');
     empty.className = 'palette-empty';
     empty.textContent = 'No things yet — press "+ Thing" to create one. Drag chips onto cards to attach.';
     paletteStrip.appendChild(empty);
     return;
   }
-  for (const thing of things.values()) {
+  const types = thingTypesForWorld(currentWorld);
+  for (const thing of worldThings) {
     const chip = document.createElement('div');
     chip.className = 'thing-chip';
     chip.dataset.thingId = thing.id;
     if (thing.cardId) chip.classList.add('attached');
     if (isSelected('thing', thing.id)) chip.classList.add('active');
-    const type = THING_TYPES[thing.type] || THING_TYPES.person;
+    const type = types[thing.type] || types.person;
     const icon = document.createElement('span');
     icon.className = `icon ${type.shape}`;
     icon.style.background = type.color;
@@ -1993,16 +3718,21 @@ function onPaletteDragUp(ev) {
 // ============================================================
 function serializeState() {
   return {
-    version: 4,
+    version: 7,
     exportedAt: new Date().toISOString(),
-    buckets: [...buckets.values()].map(b => ({
-      id: b.id, name: b.name, position: b.position, radius: b.radius, baseRadius: b.baseRadius, color: b.color, parentId: b.parentId || null,
+    currentWorld,
+    regions: [...regions.values()].map(r => ({
+      id: r.id, name: r.name, position: r.position, width: r.width, depth: r.depth, color: r.color, world: r.world || 'main',
     })),
+    buckets: [...buckets.values()].map(b => ({
+      id: b.id, name: b.name, position: b.position, radius: b.radius, baseRadius: b.baseRadius, color: b.color, parentId: b.parentId || null, regionId: b.regionId || null, world: b.world || 'main',
+    })),
+    badges: [...badges.values()].map(b => ({ id: b.id, label: b.label, color: b.color, world: b.world || 'main' })),
     cards: [...cards.values()].map(c => ({
-      id: c.id, title: c.title, description: c.description, position: c.position, bucketId: c.bucketId || null,
+      id: c.id, title: c.title, description: c.description, position: c.position, bucketId: c.bucketId || null, regionId: c.regionId || null, badgeIds: c.badgeIds || [], accomplishmentIds: c.accomplishmentIds || [], world: c.world || 'main',
     })),
     things: [...things.values()].map(t => ({
-      id: t.id, title: t.title, description: t.description, type: t.type, position: t.position, cardId: t.cardId || null,
+      id: t.id, title: t.title, description: t.description, type: t.type, position: t.position, cardId: t.cardId || null, world: t.world || 'main',
     })),
   };
 }
@@ -2043,6 +3773,322 @@ function exportJSON() {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
+// ============================================================
+// Auto-save to a user-picked JSON file (File System Access API)
+// ============================================================
+const AUTOSAVE_DEBOUNCE_MS = 600;
+const AUTOSAVE_DB = 'obelisk-fs';
+const AUTOSAVE_KEY = 'autosaveHandle';
+let autosaveHandle = null;
+let autosaveTimer = null;
+let autosaveInFlight = false;
+let autosavePending = false;
+let autosaveState = 'off'; // 'off' | 'active' | 'paused' | 'error'
+let autosaveLastAt = null;
+let autosaveError = null;
+
+const autosaveBtn = document.getElementById('autosave-btn');
+const autosaveSupported = typeof window.showSaveFilePicker === 'function';
+
+function openHandleDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(AUTOSAVE_DB, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('handles');
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function storeHandle(handle) {
+  try {
+    const db = await openHandleDB();
+    await new Promise((res, rej) => {
+      const tx = db.transaction('handles', 'readwrite');
+      tx.objectStore('handles').put(handle, AUTOSAVE_KEY);
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(tx.error);
+    });
+  } catch (e) { /* non-fatal */ }
+}
+async function loadStoredHandle() {
+  try {
+    const db = await openHandleDB();
+    return await new Promise((res) => {
+      const tx = db.transaction('handles', 'readonly');
+      const req = tx.objectStore('handles').get(AUTOSAVE_KEY);
+      req.onsuccess = () => res(req.result || null);
+      req.onerror = () => res(null);
+    });
+  } catch (e) { return null; }
+}
+async function clearStoredHandle() {
+  try {
+    const db = await openHandleDB();
+    await new Promise((res) => {
+      const tx = db.transaction('handles', 'readwrite');
+      tx.objectStore('handles').delete(AUTOSAVE_KEY);
+      tx.oncomplete = () => res();
+      tx.onerror = () => res();
+    });
+  } catch (e) { /* non-fatal */ }
+}
+
+function fmtRelative(date) {
+  if (!date) return '';
+  const sec = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+  if (sec < 5) return 'just now';
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  return `${hr}h ago`;
+}
+
+function updateAutosaveUI() {
+  if (!autosaveBtn) return;
+  autosaveBtn.classList.remove('active', 'paused', 'error');
+  if (!autosaveSupported) {
+    autosaveBtn.textContent = 'Auto-save (unsupported)';
+    autosaveBtn.title = 'Your browser does not support the File System Access API. Use Chrome, Edge, or another Chromium browser.';
+    autosaveBtn.disabled = true;
+    return;
+  }
+  const name = autosaveHandle ? (autosaveHandle.name || 'file.json') : null;
+  if (autosaveState === 'active') {
+    autosaveBtn.classList.add('active');
+    autosaveBtn.textContent = `● Auto-save: ${name}`;
+    autosaveBtn.title = `Auto-saving to ${name}` + (autosaveLastAt ? ` — last saved ${fmtRelative(autosaveLastAt)}` : '') + '. Click to stop.';
+  } else if (autosaveState === 'paused') {
+    autosaveBtn.classList.add('paused');
+    autosaveBtn.textContent = `Resume auto-save: ${name}`;
+    autosaveBtn.title = `Auto-save was paused (permission lapsed after reload). Click to resume writing to ${name}.`;
+  } else if (autosaveState === 'error') {
+    autosaveBtn.classList.add('error');
+    autosaveBtn.textContent = `Auto-save error: ${name || ''}`;
+    autosaveBtn.title = `Last write failed: ${autosaveError || 'unknown error'}. Click to retry or pick a new file.`;
+  } else {
+    autosaveBtn.textContent = 'Auto-save';
+    autosaveBtn.title = 'Pick a JSON file on disk and keep it in sync automatically.';
+  }
+}
+// keep the relative time label fresh while auto-save is on
+setInterval(() => { if (autosaveState === 'active' && autosaveLastAt) updateAutosaveUI(); }, 10000);
+
+async function ensurePermission(handle, mode = 'readwrite') {
+  try {
+    const opts = { mode };
+    const q = await handle.queryPermission(opts);
+    if (q === 'granted') return true;
+    const r = await handle.requestPermission(opts);
+    return r === 'granted';
+  } catch (e) { return false; }
+}
+
+async function writeAutosaveNow() {
+  if (!autosaveHandle) return;
+  if (autosaveInFlight) { autosavePending = true; return; }
+  autosaveInFlight = true;
+  try {
+    const granted = await ensurePermission(autosaveHandle).catch(() => false);
+    if (!granted) {
+      autosaveState = 'paused';
+      updateAutosaveUI();
+      return;
+    }
+    const writable = await autosaveHandle.createWritable();
+    await writable.write(JSON.stringify(serializeState(), null, 2));
+    await writable.close();
+    autosaveLastAt = new Date();
+    autosaveError = null;
+    autosaveState = 'active';
+    updateAutosaveUI();
+  } catch (e) {
+    autosaveError = e?.message || String(e);
+    autosaveState = 'error';
+    updateAutosaveUI();
+  } finally {
+    autosaveInFlight = false;
+    if (autosavePending) {
+      autosavePending = false;
+      writeAutosaveNow();
+    }
+  }
+}
+
+function scheduleAutosave() {
+  if (!autosaveHandle || autosaveState === 'paused') return;
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(writeAutosaveNow, AUTOSAVE_DEBOUNCE_MS);
+}
+
+async function startAutosave() {
+  if (!autosaveSupported) return;
+  try {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: `obelisk-${new Date().toISOString().slice(0, 10)}.json`,
+      types: [{ description: 'Obelisk JSON', accept: { 'application/json': ['.json'] } }],
+    });
+    autosaveHandle = handle;
+    autosaveState = 'active';
+    autosaveError = null;
+    await storeHandle(handle);
+    await writeAutosaveNow();
+  } catch (e) {
+    if (e?.name !== 'AbortError') {
+      autosaveError = e?.message || String(e);
+      autosaveState = 'error';
+      updateAutosaveUI();
+    }
+  }
+}
+
+async function stopAutosave() {
+  clearTimeout(autosaveTimer);
+  autosaveHandle = null;
+  autosaveState = 'off';
+  autosaveError = null;
+  autosaveLastAt = null;
+  await clearStoredHandle();
+  updateAutosaveUI();
+}
+
+async function resumeAutosave() {
+  if (!autosaveHandle) return;
+  const granted = await ensurePermission(autosaveHandle).catch(() => false);
+  if (!granted) {
+    autosaveState = 'paused';
+    updateAutosaveUI();
+    return;
+  }
+  autosaveState = 'active';
+  await writeAutosaveNow();
+}
+
+async function restoreAutosaveOnLoad() {
+  if (!autosaveSupported) { updateAutosaveUI(); return; }
+  const stored = await loadStoredHandle();
+  if (!stored) { updateAutosaveUI(); return; }
+  autosaveHandle = stored;
+  // Don't request permission here (no user gesture). Just show the paused state.
+  // Some browsers retain permission across reloads — if so, switch to active silently.
+  try {
+    const q = await stored.queryPermission({ mode: 'readwrite' });
+    autosaveState = (q === 'granted') ? 'active' : 'paused';
+  } catch (e) {
+    autosaveState = 'paused';
+  }
+  updateAutosaveUI();
+  // If the browser remembered permission, write the current state now so the on-disk file matches.
+  if (autosaveState === 'active') writeAutosaveNow();
+}
+
+if (autosaveBtn) {
+  autosaveBtn.addEventListener('click', async () => {
+    if (!autosaveSupported) return;
+    if (autosaveState === 'off') return startAutosave();
+    if (autosaveState === 'paused') return resumeAutosave();
+    if (autosaveState === 'error') {
+      if (autosaveHandle) return writeAutosaveNow();
+      return startAutosave();
+    }
+    // active → ask to stop
+    if (confirm(`Stop auto-saving to ${autosaveHandle?.name || 'this file'}?`)) stopAutosave();
+  });
+}
+
+function applyStateData(data) {
+  clearAll();
+  for (const r of (data.regions || [])) {
+    if (!r || !Array.isArray(r.position)) continue;
+    const world = WORLDS.includes(r.world) ? r.world : 'main';
+    const pal = regionPaletteForWorld(world);
+    const region = {
+      id: r.id || crypto.randomUUID(),
+      name: r.name || 'Region',
+      position: [r.position[0] || 0, 0, r.position[2] || 0],
+      width: r.width || REGION_DEFAULT_W,
+      depth: r.depth || REGION_DEFAULT_D,
+      color: r.color || pal[regions.size % pal.length],
+      world,
+    };
+    scene.add(createRegionObjects(region));
+    regions.set(region.id, region);
+  }
+  for (const b of (data.buckets || [])) {
+    if (!b || !Array.isArray(b.position)) continue;
+    const radius = b.radius || BUCKET_DEFAULT_RADIUS;
+    const baseRadius = b.baseRadius || radius;
+    const regionId = (b.regionId && regions.has(b.regionId)) ? b.regionId : null;
+    const world = WORLDS.includes(b.world) ? b.world : 'main';
+    const pal = bucketPaletteForWorld(world);
+    const bucket = {
+      id: b.id || crypto.randomUUID(),
+      name: b.name || 'Bucket',
+      position: [b.position[0] || 0, 0, b.position[2] || 0],
+      baseRadius, radius,
+      color: b.color || pal[buckets.size % pal.length],
+      parentId: b.parentId || null,
+      regionId,
+      world,
+    };
+    scene.add(createBucketObjects(bucket));
+    buckets.set(bucket.id, bucket);
+  }
+  validateBucketParents();
+  for (const b of buckets.values()) if (b.parentId) b.regionId = null;
+  for (const b of (data.badges || [])) {
+    if (!b || !b.id) continue;
+    const world = WORLDS.includes(b.world) ? b.world : 'main';
+    const pal = badgePaletteForWorld(world);
+    badges.set(b.id, {
+      id: b.id,
+      label: String(b.label || 'Badge').slice(0, BADGE_MAX_LABEL),
+      color: b.color || pal[badges.size % pal.length],
+      world,
+    });
+  }
+  for (const c of (data.cards || [])) {
+    if (!c || !Array.isArray(c.position)) continue;
+    const pos = [c.position[0] || 0, CARD_ALTITUDE, c.position[2] || 0];
+    const bucketId = (c.bucketId && buckets.has(c.bucketId)) ? c.bucketId : null;
+    const regionId = (!bucketId && c.regionId && regions.has(c.regionId)) ? c.regionId : null;
+    const badgeIds = Array.isArray(c.badgeIds) ? c.badgeIds.filter(id => badges.has(id)) : [];
+    const accomplishmentIds = Array.isArray(c.accomplishmentIds) ? c.accomplishmentIds : [];
+    const world = WORLDS.includes(c.world) ? c.world : 'main';
+    const card = { id: c.id || crypto.randomUUID(), title: c.title || '', description: c.description || '', position: pos, bucketId, regionId, badgeIds, accomplishmentIds, world };
+    scene.add(createCardMesh(card));
+    cards.set(card.id, card);
+  }
+  for (const c of cards.values()) {
+    if (c.world !== 'main') c.accomplishmentIds = [];
+    else c.accomplishmentIds = (c.accomplishmentIds || []).filter(id => cards.has(id) && cards.get(id).world === 'accomplishments');
+  }
+  for (const t of (data.things || [])) {
+    if (!t || !Array.isArray(t.position)) continue;
+    const cardId = (t.cardId && cards.has(t.cardId)) ? t.cardId : null;
+    const world = WORLDS.includes(t.world) ? t.world : 'main';
+    const thing = {
+      id: t.id || crypto.randomUUID(),
+      title: t.title || '',
+      description: t.description || '',
+      type: THING_TYPES[t.type] ? t.type : 'person',
+      position: [t.position[0] || 0, CARD_ALTITUDE, t.position[2] || 0],
+      cardId,
+      world,
+    };
+    scene.add(createThingMesh(thing));
+    things.set(thing.id, thing);
+  }
+  for (const c of cards.values()) layoutThingsAroundCard(c);
+  if (WORLDS.includes(data.currentWorld)) currentWorld = data.currentWorld;
+  refreshAll();
+  refreshAllRegions();
+  applyTheme();
+  applyWorldVisibility();
+  updateWorldToggleUI();
+  updatePalette();
+  renderSidebar();
+}
+
 function clearAll() {
   for (const t of things.values()) {
     scene.remove(t.mesh);
@@ -2069,9 +4115,22 @@ function clearAll() {
     b.labelTexture.dispose();
   }
   buckets.clear();
+  for (const r of regions.values()) {
+    scene.remove(r.group);
+    r.wall.geometry.dispose();
+    r.wallMat.dispose();
+    disposeRegionFrame(r);
+    r.label.geometry.dispose();
+    r.labelMat.dispose();
+    r.labelTexture.dispose();
+  }
+  regions.clear();
+  badges.clear();
   selection = null;
+  if (typeof boxSelection !== 'undefined') boxSelection.clear();
   hoveredBucketId = null;
   pushedBucketId = null;
+  hoveredRegionId = null;
   hoveredCardId = null;
   updatePalette();
 }
@@ -2081,65 +4140,17 @@ async function importJSON(file) {
   try { text = await file.text(); } catch (e) { alert('Could not read file: ' + e.message); return; }
   let data;
   try { data = JSON.parse(text); } catch (e) { alert('File is not valid JSON: ' + e.message); return; }
-  if (!data || (!Array.isArray(data.cards) && !Array.isArray(data.buckets) && !Array.isArray(data.things))) {
-    alert('JSON is missing "cards", "buckets", and "things" arrays.');
+  if (!data || (!Array.isArray(data.cards) && !Array.isArray(data.buckets) && !Array.isArray(data.things) && !Array.isArray(data.regions) && !Array.isArray(data.badges))) {
+    alert('JSON is missing "cards", "buckets", "regions", "badges", and "things" arrays.');
     return;
   }
-  const incoming = (data.cards?.length || 0) + (data.buckets?.length || 0) + (data.things?.length || 0);
-  const existing = cards.size + buckets.size + things.size;
+  const incoming = (data.cards?.length || 0) + (data.buckets?.length || 0) + (data.things?.length || 0) + (data.regions?.length || 0) + (data.badges?.length || 0);
+  const existing = cards.size + buckets.size + things.size + regions.size + badges.size;
   if (existing > 0) {
     const msg = `Replace current state (${existing} item${existing !== 1 ? 's' : ''}) with ${incoming} item${incoming !== 1 ? 's' : ''} from the file?`;
     if (!confirm(msg)) return;
   }
-  clearAll();
-  for (const b of (data.buckets || [])) {
-    if (!b || !Array.isArray(b.position)) continue;
-    const radius = b.radius || BUCKET_DEFAULT_RADIUS;
-    const baseRadius = b.baseRadius || radius;
-    const bucket = {
-      id: b.id || crypto.randomUUID(),
-      name: b.name || 'Bucket',
-      position: [b.position[0] || 0, 0, b.position[2] || 0],
-      baseRadius, radius,
-      color: b.color || BUCKET_PALETTE[buckets.size % BUCKET_PALETTE.length],
-      parentId: b.parentId || null,
-    };
-    scene.add(createBucketObjects(bucket));
-    buckets.set(bucket.id, bucket);
-  }
-  validateBucketParents();
-  for (const c of (data.cards || [])) {
-    if (!c || !Array.isArray(c.position)) continue;
-    const pos = [c.position[0] || 0, CARD_ALTITUDE, c.position[2] || 0];
-    const bucketId = (c.bucketId && buckets.has(c.bucketId)) ? c.bucketId : null;
-    const card = {
-      id: c.id || crypto.randomUUID(),
-      title: c.title || '',
-      description: c.description || '',
-      position: pos,
-      bucketId,
-    };
-    scene.add(createCardMesh(card));
-    cards.set(card.id, card);
-  }
-  refreshAll();
-  for (const t of (data.things || [])) {
-    if (!t || !Array.isArray(t.position)) continue;
-    const cardId = (t.cardId && cards.has(t.cardId)) ? t.cardId : null;
-    const thing = {
-      id: t.id || crypto.randomUUID(),
-      title: t.title || '',
-      description: t.description || '',
-      type: THING_TYPES[t.type] ? t.type : 'person',
-      position: [t.position[0] || 0, CARD_ALTITUDE, t.position[2] || 0],
-      cardId,
-    };
-    scene.add(createThingMesh(thing));
-    things.set(thing.id, thing);
-  }
-  for (const c of cards.values()) layoutThingsAroundCard(c);
-  updatePalette();
-  renderSidebar();
+  applyStateData(data);
   save();
 }
 
@@ -2153,6 +4164,8 @@ document.getElementById('load-json-input').addEventListener('change', (ev) => {
   ev.target.value = '';
 });
 
+restoreAutosaveOnLoad();
+
 if (!load()) {
   const root = addBucket({ name: 'Getting started', position: [0, 0, 0] });
   addCard({ title: 'Welcome to Obelisk', description: 'A 3D space for organizing tasks and concepts.\n\n• Click any card, bucket, or thing to edit it\n• Shift-drag to move objects in space\n• Drop a card inside a bucket ring to group it\n• Drag a thing from the palette below onto a card to attach it\n• Nest buckets to any depth — drop one bucket into another, or use "+ Bucket" while one is selected', position: [0, 2, 0] });
@@ -2165,6 +4178,11 @@ if (!load()) {
   select(null);
   updatePalette();
 }
+applyTheme();
+applyWorldVisibility();
+updateWorldToggleUI();
+scheduleHistorySnapshot(true);
+updateUndoRedoUI();
 
 // ============================================================
 // Resize & render loop
