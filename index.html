@@ -27,16 +27,14 @@
   body[data-world="achievements"] #canvas-container { left: 0; }
   body[data-world="achievements"] #palette { display: none; }
 
-  /* ---- Top tab bar (worlds) ---- */
-  /* Centered over the 3D canvas region (between the left palette and the right
-     sidebar), not the whole window, so it never slides under the sidebar. */
+  /* ---- Top tab bar (worlds) — left-aligned inside the 3D space ---- */
   #tabs {
-    position: fixed; top: 12px; left: calc(50% - 65px); transform: translateX(-50%); z-index: 12;
-    display: flex; gap: 6px; max-width: calc(100% - 560px);
+    position: fixed; top: 12px; left: 222px; z-index: 12;
+    display: flex; gap: 6px; max-width: calc(100% - 562px);
     background: rgba(22,27,34,0.85); backdrop-filter: blur(8px);
     border: 1px solid var(--border); border-radius: 999px; padding: 5px;
   }
-  body[data-world="achievements"] #tabs { left: calc(50% - 170px); }
+  body[data-world="achievements"] #tabs { left: 12px; }
   .tab {
     background: transparent; color: var(--muted); border: none;
     border-radius: 999px; padding: 8px 20px; font: inherit; font-size: 14px;
@@ -49,15 +47,18 @@
   .tab[data-world="tasks"].active        { background: #4a1418; color: #ffd8d8; box-shadow: 0 0 0 1px #e5484d, 0 0 14px rgba(229,72,77,0.45); }
   .tab[data-world="achievements"].active { background: #3a2a08; color: #ffe9b0; box-shadow: 0 0 0 1px #ffd700, 0 0 16px rgba(255,215,0,0.5); }
 
-  /* Toolbar sits inside the 3D view: right of the palette, below the tabs,
-     and capped so it never reaches the sidebar. */
+  /* bottom-left dock: instructional bar (status) above the activity bar (toolbar) */
+  #bottom-dock {
+    position: fixed; left: 222px; bottom: 12px; z-index: 10;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
+    max-width: calc(100% - 562px);
+  }
+  body[data-world="achievements"] #bottom-dock { left: 12px; max-width: calc(100% - 364px); }
   #toolbar {
-    position: fixed; top: 62px; left: 222px; z-index: 10;
-    display: flex; gap: 6px; flex-wrap: wrap; max-width: calc(100% - 562px);
+    display: flex; gap: 6px; flex-wrap: wrap;
     background: rgba(22,27,34,0.85); backdrop-filter: blur(8px);
     border: 1px solid var(--border); border-radius: 8px; padding: 6px;
   }
-  body[data-world="achievements"] #toolbar { left: 12px; max-width: calc(100% - 364px); }
   button {
     background: var(--panel-2); color: var(--text);
     border: 1px solid var(--border); border-radius: 6px;
@@ -70,9 +71,10 @@
   button.danger:hover { border-color: var(--danger); }
   button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-  /* project controls live only in the Tasks world */
+  /* grouping controls live in the People and Tasks worlds (not Achievements) */
   #group-toggle-btn, #add-project-btn { display: none; }
-  body[data-world="tasks"] #group-toggle-btn, body[data-world="tasks"] #add-project-btn { display: inline-block; }
+  body[data-world="tasks"] #group-toggle-btn, body[data-world="tasks"] #add-project-btn,
+  body[data-world="people"] #group-toggle-btn, body[data-world="people"] #add-project-btn { display: inline-block; }
   #group-toggle-btn.on { background: #b07cff; border-color: #b07cff; color: #190a33; }
   #group-toggle-btn.on:hover { background: #c79bff; border-color: #c79bff; }
 
@@ -131,13 +133,11 @@
   .drag-ghost.person .dot { border-radius: 50%; }
 
   #status {
-    position: fixed; bottom: 12px; left: 222px; z-index: 10;
     color: var(--muted); font-size: 11px;
     background: rgba(22,27,34,0.7); backdrop-filter: blur(8px);
-    border: 1px solid var(--border); border-radius: 6px;
-    padding: 4px 8px; pointer-events: none;
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 18px; pointer-events: none;
   }
-  body[data-world="achievements"] #status { left: 12px; }
   kbd {
     background: var(--panel-2); border: 1px solid var(--border);
     border-radius: 3px; padding: 1px 4px; font-size: 10px;
@@ -222,20 +222,6 @@
     <button class="tab" data-world="achievements">Achievements</button>
   </div>
 
-  <div id="toolbar">
-    <button id="add-primary-btn" class="primary">+ Person</button>
-    <button id="group-toggle-btn" title="Group tasks into projects (boxes stacked along depth)">Group: Off</button>
-    <button id="add-project-btn" title="Create a new project">+ Project</button>
-    <button id="focus-btn" title="Frame the board">Reset view</button>
-    <button id="save-json-btn" title="Download current state as JSON">Save .json</button>
-    <button id="load-json-btn" title="Replace current state with a JSON file">Load .json</button>
-    <button id="autosave-btn" title="Pick a JSON file on disk and keep it in sync automatically">Auto-save</button>
-    <button id="restore-btn" title="Restore from an automatic backup of a previous state">Restore ▾</button>
-    <button id="undo-btn" title="Undo (Ctrl+Z)">↶</button>
-    <button id="redo-btn" title="Redo (Ctrl+Y / Ctrl+Shift+Z)">↷</button>
-    <input type="file" id="load-json-input" accept=".json,application/json" style="display:none;" />
-  </div>
-
   <div id="palette">
     <div id="palette-header">
       <h2 id="palette-title">Unassigned tasks</h2>
@@ -246,8 +232,25 @@
 
   <div id="restore-menu" class="dropdown-menu"></div>
 
-  <div id="status">
-    <kbd>L-drag</kbd> orbit · <kbd>scroll</kbd> zoom · <kbd>click</kbd> select · <kbd>drag a small box</kbd> reassign · <kbd>drag to palette</kbd> unassign · <kbd>del</kbd> delete
+  <!-- bottom-left dock: instructional bar above the activity (toolbar) bar -->
+  <div id="bottom-dock">
+    <div id="status">
+      <kbd>L-drag</kbd> orbit · <kbd>scroll</kbd> zoom · <kbd>click</kbd> select · <kbd>drag a small box</kbd> reassign · <kbd>drag to palette</kbd> unassign · <kbd>del</kbd> delete
+    </div>
+    <div id="toolbar">
+      <button id="add-primary-btn" class="primary">+ Person</button>
+      <button id="group-toggle-btn" title="Group tasks into projects (boxes stacked along depth)">Group: Off</button>
+      <button id="add-project-btn" title="Create a new project">+ Project</button>
+      <button id="auto-fit-btn" title="Re-arrange cards into a tidy auto grid">Auto-fit</button>
+      <button id="focus-btn" title="Frame the board">Reset view</button>
+      <button id="save-json-btn" title="Download current state as JSON">Save .json</button>
+      <button id="load-json-btn" title="Replace current state with a JSON file">Load .json</button>
+      <button id="autosave-btn" title="Pick a JSON file on disk and keep it in sync automatically">Auto-save</button>
+      <button id="restore-btn" title="Restore from an automatic backup of a previous state">Restore ▾</button>
+      <button id="undo-btn" title="Undo (Ctrl+Z)">↶</button>
+      <button id="redo-btn" title="Redo (Ctrl+Y / Ctrl+Shift+Z)">↷</button>
+      <input type="file" id="load-json-input" accept=".json,application/json" style="display:none;" />
+    </div>
   </div>
 
   <aside id="sidebar">
@@ -432,8 +435,8 @@ const TASK_PALETTE = ['#e5484d', '#f2555a', '#d23b40', '#ff6b6b', '#c0392b'];
 const ACH_PALETTE = ['#ffd700', '#ffb84d', '#d4a017', '#daa520', '#e6c200'];
 const PROJECT_PALETTE = ['#b07cff', '#ff9f5c', '#f25c8a', '#5cc8ff', '#ffd24a'];
 
-// White cards (dark text); People faintly blue-white, Tasks faintly red-white.
-const PERSON_CARD = { bg: '#eef4ff', bgSel: '#dbe8ff', border: '#b9cdec', borderSel: '#2f6fe0', text: '#0d1b2e' };
+// People = dark cards (light text); Tasks = white cards (faintly red-tinted).
+const PERSON_CARD = { bg: '#10203a', bgSel: '#1d3a66', border: '#2a4a6e', borderSel: '#79b8ff', text: '#dbe9ff' };
 const TASK_CARD = { bg: '#fff0f0', bgSel: '#ffdede', border: '#edc4c4', borderSel: '#e5484d', text: '#2e0d0d' };
 const ACH_CARD = { bg: '#1a1408', bgSel: '#3a2a08', border: '#5a3a08', borderSel: '#ffd700', text: '#ffd87a' };
 
@@ -473,7 +476,9 @@ const people = new Map();
 const tasks = new Map();
 const achievements = new Map();
 const projects = new Map();      // id -> { id, title, color }
+const peopleGroups = new Map();  // id -> { id, title, color }
 let groupTasks = false;          // Tasks-world grouping mode (tasks → project boxes)
+let groupPeople = false;         // People-world grouping mode (people → group boxes)
 
 function tasksForPerson(pid) { return [...tasks.values()].filter(t => t.assigneeIds.includes(pid)); }
 function peopleForTask(t) { return t.assigneeIds.map(id => people.get(id)).filter(Boolean); }
@@ -482,6 +487,8 @@ function assignedPersonIds() { const s = new Set(); for (const t of tasks.values
 function unassignedPeople() { const a = assignedPersonIds(); return [...people.values()].filter(p => !a.has(p.id)); }
 function tasksForProject(pid) { return [...tasks.values()].filter(t => t.projectId === pid); }
 function ungroupedTasks() { return [...tasks.values()].filter(t => !t.projectId || !projects.has(t.projectId)); }
+function peopleInGroup(gid) { return [...people.values()].filter(p => p.groupId === gid); }
+function grouplessPeople() { return [...people.values()].filter(p => !p.groupId || !peopleGroups.has(p.groupId)); }
 
 // People carry structured name fields; everything else just has a title.
 function personName(p) {
@@ -499,7 +506,7 @@ function addPerson({ firstName = '', lastName = '', jobTitle = '', rank = '', de
   if (!firstName && !lastName) firstName = 'New person';
   const id = crypto.randomUUID();
   const p = { id, firstName, lastName, jobTitle, rank, description, color: color || pick(PERSON_PALETTE),
-    showJobTitle: true, showRank: true, showDescription: false };
+    showJobTitle: true, showRank: true, showDescription: false, groupId: null, pos: null };
   people.set(id, p);
   refreshActiveWorld(); updatePalette();
   select('person', id); save(); scheduleHistorySnapshot(true);
@@ -507,7 +514,7 @@ function addPerson({ firstName = '', lastName = '', jobTitle = '', rank = '', de
 }
 function addTask({ title = 'New task', description = '', color, assigneeIds = [], projectId = null } = {}) {
   const id = crypto.randomUUID();
-  const t = { id, title, description, color: color || pick(TASK_PALETTE), assigneeIds: [...assigneeIds], projectId, showDescription: false };
+  const t = { id, title, description, color: color || pick(TASK_PALETTE), assigneeIds: [...assigneeIds], projectId, showDescription: false, pos: null };
   tasks.set(id, t);
   refreshActiveWorld(); updatePalette();
   select('task', id); save(); scheduleHistorySnapshot(true);
@@ -515,7 +522,7 @@ function addTask({ title = 'New task', description = '', color, assigneeIds = []
 }
 function addProject({ title = 'New project', color } = {}) {
   const id = crypto.randomUUID();
-  const p = { id, title, color: color || pick(PROJECT_PALETTE) };
+  const p = { id, title, color: color || pick(PROJECT_PALETTE), zOffset: 0 };
   projects.set(id, p);
   refreshActiveWorld();
   select('project', id); save(); scheduleHistorySnapshot(true);
@@ -527,9 +534,23 @@ function deleteProject(id) {
   if (isSelected('project', id)) select(null);
   refreshActiveWorld(); save(); scheduleHistorySnapshot(true);
 }
+function addGroup({ title = 'New group', color } = {}) {
+  const id = crypto.randomUUID();
+  const g = { id, title, color: color || pick(PROJECT_PALETTE), zOffset: 0 };
+  peopleGroups.set(id, g);
+  refreshActiveWorld();
+  select('group', id); save(); scheduleHistorySnapshot(true);
+  return g;
+}
+function deleteGroup(id) {
+  for (const p of people.values()) if (p.groupId === id) p.groupId = null;
+  peopleGroups.delete(id);
+  if (isSelected('group', id)) select(null);
+  refreshActiveWorld(); save(); scheduleHistorySnapshot(true);
+}
 function addAchievement({ title = 'New achievement', description = '', color } = {}) {
   const id = crypto.randomUUID();
-  const a = { id, title, description, color: color || pick(ACH_PALETTE), showDescription: false };
+  const a = { id, title, description, color: color || pick(ACH_PALETTE), showDescription: false, pos: null };
   achievements.set(id, a);
   refreshActiveWorld();
   select('achievement', id); save(); scheduleHistorySnapshot(true);
@@ -664,35 +685,51 @@ function paintMini(ctx, title, accent, card, kind, selected) {
 // Mesh factories
 // ============================================================
 const NODE_ALTITUDE = 2.0;
+// A card = front plane + a back plane whose texture is horizontally mirrored, so the
+// text reads correctly from both sides. Returned `mesh` is a Group (front + back).
 function makeTexturedPlane(w, h, canvas) {
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-  texture.colorSpace = THREE.SRGBColorSpace;
-  const mat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide });
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
-  return { mesh, texture };
+  const aniso = renderer.capabilities.getMaxAnisotropy();
+  const front = new THREE.CanvasTexture(canvas);
+  front.anisotropy = aniso; front.colorSpace = THREE.SRGBColorSpace;
+  const back = new THREE.CanvasTexture(canvas);
+  back.anisotropy = aniso; back.colorSpace = THREE.SRGBColorSpace;
+  back.wrapS = THREE.RepeatWrapping; back.repeat.x = -1; back.offset.x = 1; // mirror → readable from behind
+  const geo = new THREE.PlaneGeometry(w, h);
+  const group = new THREE.Group();
+  group.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: front, transparent: true, side: THREE.FrontSide })));
+  group.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: back, transparent: true, side: THREE.BackSide })));
+  return { mesh: group, texture: front };
 }
 // ============================================================
 // Board layout (People / Tasks worlds)
 // ============================================================
-const PW = 3.2, PH = 1.8;          // big card
-const MW = 1.5, MH = 0.6;          // mini box
+// Big cards stand on the ground plane (bottom at y=0) — all at the SAME altitude —
+// arranged in a grid: X = columns, Z = rows going back. Minis stack behind (−Z).
+const PW = 3.2, PH = 1.8;
+const MW = 1.5, MH = 0.6;
 const COL_OFF = 0.85;              // mini column x offset from card center
-const ROW_PITCH = MH + 0.18;       // vertical pitch between mini rows
-const FIRST_ROW = PH / 2 + 0.25 + MH / 2;  // first mini row below card center
-const CELL_X = PW + 1.6;           // grid horizontal pitch
-const GROUP_DEPTH = 3.0, GROUP_GAP = 2.5, GROUP_PAD = 1.0; // project box depth / spacing along Z
+const CELL_X = PW + 1.6;           // column pitch (X)
+const STAND_Y = PH / 2;            // uniform card-center altitude (bottom on ground)
+const MINI_Y = MH / 2;             // mini-box center altitude
+const CARD_TO_MINI = 1.0;          // depth (−Z) from a card to its first mini row
+const MINI_ROW_DZ = MH + 0.18;     // depth pitch between mini rows
+const ROW_GAP_Z = 3.5;             // Z spacing between card rows (minis stack up, not back)
+const GROUP_GAP = 2.5, GROUP_PAD = 1.0; // footprint padding / gap between groups
+const SNAP = 1.0; // grid step (world units) for dragging
+function snap(v) { return Math.round(v / SNAP) * SNAP; }
+function validPos(p) { return p && typeof p.x === 'number' && typeof p.z === 'number' ? { x: p.x, z: p.z } : null; }
 
 let boardObjects = [];   // all meshes for the current board
 let boardPickables = []; // subset used for raycasting
 let boardBounds = null;
 
 function disposeBoard() {
-  for (const m of boardObjects) {
-    scene.remove(m);
-    m.geometry.dispose();
-    m.material.map?.dispose();
-    m.material.dispose();
+  for (const o of boardObjects) {
+    scene.remove(o);
+    o.traverse(c => {
+      if (c.geometry) c.geometry.dispose();
+      if (c.material) { c.material.map?.dispose(); c.material.dispose(); }
+    });
   }
   boardObjects = [];
   boardPickables = [];
@@ -717,9 +754,9 @@ function boardEntries() {
 
 function entryMiniRows(e) { return Math.ceil(e.minis.length / 2); }
 
-// Place one entity's big card + its mini boxes centered at (x, y, z). Returns the
-// content's XY bounds so callers can frame it / draw a box around it.
-function placeEntry(e, x, y, z) {
+// Place one entity's big card standing on the ground at (x, frontZ) — uniform
+// altitude — with its mini boxes stacked behind it (−Z). Returns ground X/Z bounds.
+function placeEntry(e, x, frontZ, groupKey) {
   const bigCanvas = makeCanvas(512, 288);
   const sel = isSelected(e.kind, e.entity.id);
   if (e.kind === 'person') paintPersonBig(bigCanvas.getContext('2d'), e.entity, sel);
@@ -727,15 +764,16 @@ function placeEntry(e, x, y, z) {
   else paintAchievementBig(bigCanvas.getContext('2d'), e.entity, sel);
   const big = makeTexturedPlane(PW, PH, bigCanvas);
   big.texture.needsUpdate = true;
-  big.mesh.position.set(x, y, z);
-  big.mesh.userData = { kind: e.kind, id: e.entity.id };
+  big.mesh.position.set(x, STAND_Y, frontZ);
+  big.mesh.userData = { kind: e.kind, id: e.entity.id, groupKey };
   scene.add(big.mesh); boardObjects.push(big.mesh); boardPickables.push(big.mesh);
 
-  let lowY = y - PH / 2;
+  const cardTop = STAND_Y + PH / 2;
+  let topY = cardTop;
   e.minis.forEach((mi, k) => {
     const col = k % 2, row = Math.floor(k / 2);
     const mx = x + (col === 0 ? -COL_OFF : COL_OFF);
-    const my = y - FIRST_ROW - row * ROW_PITCH;
+    const my = cardTop + CARD_TO_MINI + MH / 2 + row * MINI_ROW_DZ; // stack UP in the card's vertical plane
     const canvas = makeCanvas(256, 100);
     const msel = isSelected(mi.kind, mi.entity.id);
     const accent = mi.kind === 'person' ? (mi.entity.color || PERSON_PALETTE[0]) : (mi.entity.color || TASK_PALETTE[0]);
@@ -743,61 +781,95 @@ function placeEntry(e, x, y, z) {
     paintMini(canvas.getContext('2d'), labelOf(mi.kind, mi.entity), accent, card, mi.kind, msel);
     const mini = makeTexturedPlane(MW, MH, canvas);
     mini.texture.needsUpdate = true;
-    mini.mesh.position.set(mx, my, z + 0.02);
-    mini.mesh.userData = { kind: 'assign', miniKind: mi.kind, id: mi.entity.id, taskId: mi.taskId, personId: mi.personId };
+    mini.mesh.position.set(mx, my, frontZ + 0.02);
+    mini.mesh.userData = { kind: 'assign', miniKind: mi.kind, id: mi.entity.id, taskId: mi.taskId, personId: mi.personId, groupKey };
     scene.add(mini.mesh); boardObjects.push(mini.mesh); boardPickables.push(mini.mesh);
-    lowY = Math.min(lowY, my - MH / 2);
+    topY = Math.max(topY, my + MH / 2);
   });
-  return { minX: x - PW / 2, maxX: x + PW / 2, minY: lowY, maxY: y + PH / 2 };
+  return { minX: x - PW / 2, maxX: x + PW / 2, minZ: frontZ - 0.5, maxZ: frontZ + 0.5, maxY: topY };
 }
 
-// Lay a list of entries into a centered XY grid at depth z. Returns content bounds.
-function layoutGrid(entries, z) {
+// Lay entries into a grid on the ground (X columns, −Z rows) starting at frontZ.
+// singleRow=true puts them all in one aligned row along X (for free/ungrouped cards).
+function layoutGrid(entries, frontZ, groupKey, singleRow, originX = 0) {
   const n = entries.length;
-  if (n === 0) return { minX: -PW / 2, maxX: PW / 2, minY: 1, maxY: 1 + PH };
-  const cols = Math.ceil(Math.sqrt(n));
-  const rows = Math.ceil(n / cols);
-  const maxMiniRows = entries.reduce((m, e) => Math.max(m, entryMiniRows(e)), 0);
-  const stackH = maxMiniRows * ROW_PITCH;
-  const cellY = PH + 0.5 + stackH + 0.8;
-  const gridH = (rows - 1) * cellY;
-  const YC = gridH / 2 + stackH + 2;
-  const topRowY = YC + gridH / 2;
-  let b = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
+  if (n === 0) return { minX: originX - PW / 2, maxX: originX + PW / 2, minZ: frontZ - 1, maxZ: frontZ + 1, maxY: PH };
+  const cols = singleRow ? n : Math.ceil(Math.sqrt(n));
+  const rowDepth = ROW_GAP_Z; // minis stack up now, so rows only need card spacing in Z
+  let b = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity, maxY: -Infinity };
   entries.forEach((e, i) => {
     const r = Math.floor(i / cols), c = i % cols;
-    const x = (c - (cols - 1) / 2) * CELL_X;
-    const y = topRowY - r * cellY;
-    const cb = placeEntry(e, x, y, z);
+    let x = originX + (c - (cols - 1) / 2) * CELL_X;
+    let z = frontZ - r * rowDepth;
+    if (e.entity.pos) { x = e.entity.pos.x; z = e.entity.pos.z; } // manual placement wins
+    const cb = placeEntry(e, x, z, groupKey);
     b.minX = Math.min(b.minX, cb.minX); b.maxX = Math.max(b.maxX, cb.maxX);
-    b.minY = Math.min(b.minY, cb.minY); b.maxY = Math.max(b.maxY, cb.maxY);
+    b.minZ = Math.min(b.minZ, cb.minZ); b.maxZ = Math.max(b.maxZ, cb.maxZ);
+    b.maxY = Math.max(b.maxY, cb.maxY);
   });
   return b;
 }
 
 function buildBoard() {
   disposeBoard();
-  if (currentWorld === 'tasks' && groupTasks) { buildGroupedTasks(); return; }
-  boardBounds = layoutGrid(boardEntries(), 0);
+  if (currentWorld === 'tasks' && groupTasks) { buildGrouped(tasksGroupConfig()); return; }
+  if (currentWorld === 'people' && groupPeople) { buildGrouped(peopleGroupConfig()); return; }
+  boardBounds = layoutGrid(boardEntries(), 0, undefined, true); // free cards → single aligned row
 }
 
-// Grouped Tasks view: tasks bundled into project boxes, boxes stacked along -Z.
-function buildGroupedTasks() {
-  const groups = [];
-  const ung = ungroupedTasks();
-  if (ung.length) groups.push({ project: null, tasks: ung });
-  for (const pr of projects.values()) groups.push({ project: pr, tasks: tasksForProject(pr.id) });
-  if (groups.length === 0) { boardBounds = { minX: -PW, maxX: PW, minY: 0, maxY: 4, minZ: -1, maxZ: 1 }; return; }
+function tasksGroupConfig() {
+  return {
+    containerKind: 'project', ungroupedLabel: 'No project',
+    containers: [...projects.values()],
+    ungrouped: ungroupedTasks(),
+    membersOf: id => tasksForProject(id),
+    memberKind: 'task',
+    minisOf: t => peopleForTask(t).map(p => ({ kind: 'person', entity: p, taskId: t.id, personId: p.id })),
+  };
+}
+function peopleGroupConfig() {
+  return {
+    containerKind: 'group', ungroupedLabel: 'No group',
+    containers: [...peopleGroups.values()],
+    ungrouped: grouplessPeople(),
+    membersOf: id => peopleInGroup(id),
+    memberKind: 'person',
+    minisOf: p => tasksForPerson(p.id).map(t => ({ kind: 'task', entity: t, taskId: t.id, personId: p.id })),
+  };
+}
 
-  let B = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, minZ: Infinity, maxZ: -Infinity };
+// Generic grouped view: members bundled into container boxes stacked along -Z.
+function buildGrouped(cfg) {
+  const groups = [];
+  if (cfg.ungrouped.length) groups.push({ container: null, members: cfg.ungrouped });
+  for (const c of cfg.containers) groups.push({ container: c, members: cfg.membersOf(c.id) });
+  if (groups.length === 0) { boardBounds = { minX: -PW, maxX: PW, minZ: -1, maxZ: 1, maxY: PH }; return; }
+
+  // arrange the group boxes themselves into a grid (a box), not a single line
+  const estimate = g => {
+    const n = g.members.length;
+    const singleRow = g.container === null;
+    const cols = n === 0 ? 1 : (singleRow ? n : Math.ceil(Math.sqrt(n)));
+    const rows = n === 0 ? 1 : Math.ceil(n / cols);
+    return { w: cols * CELL_X, depth: (rows - 1) * ROW_GAP_Z + PW + 1 };
+  };
+  const sizes = groups.map(estimate);
+  const cellW = Math.max(...sizes.map(s => s.w)) + GROUP_PAD * 2 + GROUP_GAP;
+  const cellD = Math.max(...sizes.map(s => s.depth)) + GROUP_PAD * 2 + GROUP_GAP;
+  const gCols = Math.ceil(Math.sqrt(groups.length));
+
+  let B = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity, maxY: -Infinity };
   groups.forEach((g, gi) => {
-    const frontZ = -gi * (GROUP_DEPTH + GROUP_GAP);
-    const entries = g.tasks.map(t => ({ kind: 'task', entity: t, minis: peopleForTask(t).map(p => ({ kind: 'person', entity: p, taskId: t.id, personId: p.id })) }));
-    const gb = layoutGrid(entries, frontZ);
-    addGroupBox(g.project, gb, frontZ);
+    const gc = gi % gCols, gr = Math.floor(gi / gCols);
+    const originX = (gc - (gCols - 1) / 2) * cellW;
+    const frontZ = -gr * cellD;
+    const groupKey = g.container ? g.container.id : '__ungrouped_' + gi;
+    const entries = g.members.map(e => ({ kind: cfg.memberKind, entity: e, minis: cfg.minisOf(e) }));
+    const gb = layoutGrid(entries, frontZ, groupKey, g.container === null, originX); // free group → single row
+    addGroupBox(g.container, gb, cfg.containerKind, cfg.ungroupedLabel, groupKey);
     B.minX = Math.min(B.minX, gb.minX - GROUP_PAD); B.maxX = Math.max(B.maxX, gb.maxX + GROUP_PAD);
-    B.minY = Math.min(B.minY, gb.minY - GROUP_PAD); B.maxY = Math.max(B.maxY, gb.maxY + GROUP_PAD + 1);
-    B.minZ = Math.min(B.minZ, frontZ - GROUP_DEPTH); B.maxZ = Math.max(B.maxZ, frontZ + 0.5);
+    B.minZ = Math.min(B.minZ, gb.minZ - GROUP_PAD); B.maxZ = Math.max(B.maxZ, gb.maxZ + GROUP_PAD);
+    B.maxY = Math.max(B.maxY, gb.maxY);
   });
   boardBounds = B;
 }
@@ -811,31 +883,36 @@ function paintGroupLabel(ctx, title, color, selected) {
   ctx.fillText(truncate(ctx, title, w - 28), 18, h / 2 + 1);
 }
 
-function addGroupBox(project, gb, frontZ) {
+function addGroupBox(container, gb, kind, ungroupedLabel, groupKey) {
   const w = (gb.maxX - gb.minX) + GROUP_PAD * 2;
-  const h = (gb.maxY - gb.minY) + GROUP_PAD * 2;
-  const cx = (gb.minX + gb.maxX) / 2, cy = (gb.minY + gb.maxY) / 2;
-  const cz = frontZ - GROUP_DEPTH / 2 + 0.3;
-  const color = project ? (project.color || PROJECT_PALETTE[0]) : '#8b949e';
+  const depth = (gb.maxZ - gb.minZ) + GROUP_PAD * 2;
+  const height = (gb.maxY || PH) + GROUP_PAD; // encompass the cards + their stacked minis
+  const cx = (gb.minX + gb.maxX) / 2, cz = (gb.minZ + gb.maxZ) / 2;
+  const color = container ? (container.color || PROJECT_PALETTE[0]) : '#8b949e';
 
-  const box = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, GROUP_DEPTH)), new THREE.LineBasicMaterial({ color }));
-  box.position.set(cx, cy, cz);
+  // wireframe cuboid encompassing the group's contents, sitting on the ground
+  const box = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w, height, depth)), new THREE.LineBasicMaterial({ color }));
+  box.position.set(cx, height / 2, cz);
+  box.userData = { groupKey };
   scene.add(box); boardObjects.push(box);
 
-  // faint back panel — also the click target for selecting the project
-  const panel = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: project ? 0.08 : 0.04, side: THREE.DoubleSide, depthWrite: false }));
-  panel.position.set(cx, cy, cz - GROUP_DEPTH / 2 + 0.02);
-  if (project) { panel.userData = { kind: 'project', id: project.id }; }
+  // faint floor fill — also the click/drag/drop target for the container
+  const panelGeo = new THREE.PlaneGeometry(w, depth); panelGeo.rotateX(-Math.PI / 2);
+  const panel = new THREE.Mesh(panelGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: container ? 0.10 : 0.05, side: THREE.DoubleSide, depthWrite: false }));
+  panel.position.set(cx, 0.04, cz);
+  panel.userData = container ? { kind, id: container.id, groupKey } : { groupKey };
   scene.add(panel); boardObjects.push(panel);
-  if (project) boardPickables.push(panel);
+  if (container) boardPickables.push(panel);
 
+  // label standing at the front-top edge of the cuboid (fixed-facing, not billboarded)
   const lw = Math.min(w, 5), lh = 0.7;
   const lc = makeCanvas(Math.round(lw * 64), Math.round(lh * 64));
-  paintGroupLabel(lc.getContext('2d'), project ? (project.title || 'Untitled') : 'No project', color, project ? isSelected('project', project.id) : false);
+  paintGroupLabel(lc.getContext('2d'), container ? (container.title || 'Untitled') : ungroupedLabel, color, container ? isSelected(kind, container.id) : false);
   const label = makeTexturedPlane(lw, lh, lc);
   label.texture.needsUpdate = true;
-  label.mesh.position.set(cx, cy + h / 2 + 0.55, frontZ + 0.3);
-  if (project) { label.mesh.userData = { kind: 'project', id: project.id }; boardPickables.push(label.mesh); }
+  label.mesh.position.set(cx, height + 0.4, gb.maxZ + GROUP_PAD - 0.1);
+  label.mesh.userData = container ? { kind, id: container.id, groupKey } : { groupKey };
+  if (container) boardPickables.push(label.mesh);
   scene.add(label.mesh); boardObjects.push(label.mesh);
 }
 
@@ -846,20 +923,11 @@ function refreshActiveWorld() {
 function fitCamera() {
   if (!boardBounds) return;
   const b = boardBounds;
-  const cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2;
-  const width = (b.maxX - b.minX), height = (b.maxY - b.minY);
-  if (b.minZ !== undefined) {
-    // grouped view — angle the camera so the depth-stacked project boxes are visible
-    const cz = (b.minZ + b.maxZ) / 2, depth = b.maxZ - b.minZ;
-    const size = Math.max(width, height, depth, 8);
-    controls.target.set(cx, cy, cz);
-    camera.position.set(cx + size * 0.55, cy + size * 0.5, b.maxZ + size * 0.95 + 4);
-    return;
-  }
-  const size = Math.max(width, height, 6);
-  const dist = size * 0.85 + 7;
-  controls.target.set(cx, cy, 0);
-  camera.position.set(cx, cy + size * 0.06, dist);
+  const cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
+  const top = b.maxY || PH;
+  const size = Math.max(b.maxX - b.minX, b.maxZ - b.minZ, top, 8);
+  controls.target.set(cx, top / 2, cz);
+  camera.position.set(cx, top * 0.6 + size * 0.45 + 4, b.maxZ + size * 0.9 + 6);
 }
 
 // ============================================================
@@ -906,6 +974,7 @@ function entityFor(sel) {
   if (sel.type === 'task') return tasks.get(sel.id);
   if (sel.type === 'achievement') return achievements.get(sel.id);
   if (sel.type === 'project') return projects.get(sel.id);
+  if (sel.type === 'group') return peopleGroups.get(sel.id);
   return null;
 }
 function select(type, id = null) {
@@ -969,7 +1038,7 @@ function renderSidebar() {
   }
   body.innerHTML = '';
   const type = selection.type;
-  titleEl.textContent = type === 'person' ? 'Person' : type === 'task' ? 'Task' : type === 'project' ? 'Project' : 'Achievement';
+  titleEl.textContent = { person: 'Person', task: 'Task', project: 'Project', group: 'Group', achievement: 'Achievement' }[type] || 'Selection';
 
   if (type === 'person') {
     const nameChanged = v => { refreshActiveWorld(); updatePalette(); save(); };
@@ -978,6 +1047,7 @@ function renderSidebar() {
     body.appendChild(makeToggleField('Title', ent.jobTitle, false, v => { ent.jobTitle = v; refreshActiveWorld(); save(); }, ent, 'showJobTitle'));
     body.appendChild(makeToggleField('Rank', ent.rank, false, v => { ent.rank = v; refreshActiveWorld(); save(); }, ent, 'showRank'));
     body.appendChild(makeSwatches(PERSON_PALETTE, ent.color, col => { ent.color = col; refreshActiveWorld(); updatePalette(); save(); renderSidebar(); }));
+    body.appendChild(groupField(ent));
     body.appendChild(makeToggleField('Notes', ent.description, true, v => { ent.description = v; refreshActiveWorld(); save(); }, ent, 'showDescription'));
     body.appendChild(linkSection('Assigned tasks', tasksForPerson(ent.id), 'task',
       tid => { const t = tasks.get(tid); if (t) t.assigneeIds = t.assigneeIds.filter(x => x !== ent.id); afterLinkChange(); },
@@ -988,9 +1058,9 @@ function renderSidebar() {
   }
 
   body.appendChild(makeField('Title', ent.title, false, v => { ent.title = v; refreshActiveWorld(); updatePalette(); save(); }));
-  const palette = type === 'task' ? TASK_PALETTE : type === 'project' ? PROJECT_PALETTE : ACH_PALETTE;
+  const palette = type === 'task' ? TASK_PALETTE : (type === 'project' || type === 'group') ? PROJECT_PALETTE : ACH_PALETTE;
   body.appendChild(makeSwatches(palette, ent.color, col => { ent.color = col; refreshActiveWorld(); updatePalette(); save(); renderSidebar(); }));
-  if (type !== 'project') body.appendChild(makeToggleField('Description', ent.description, true, v => { ent.description = v; refreshActiveWorld(); save(); }, ent, 'showDescription'));
+  if (type !== 'project' && type !== 'group') body.appendChild(makeToggleField('Description', ent.description, true, v => { ent.description = v; refreshActiveWorld(); save(); }, ent, 'showDescription'));
 
   if (type === 'task') {
     body.appendChild(projectField(ent));
@@ -1003,6 +1073,11 @@ function renderSidebar() {
       tid => { const t = tasks.get(tid); if (t) t.projectId = null; afterLinkChange(); },
       [...tasks.values()].filter(t => t.projectId !== ent.id),
       tid => { const t = tasks.get(tid); if (t) t.projectId = ent.id; afterLinkChange(); }));
+  } else if (type === 'group') {
+    body.appendChild(linkSection('People in group', peopleInGroup(ent.id), 'person',
+      pid => { const p = people.get(pid); if (p) p.groupId = null; afterLinkChange(); },
+      [...people.values()].filter(p => p.groupId !== ent.id),
+      pid => { const p = people.get(pid); if (p) p.groupId = ent.id; afterLinkChange(); }));
   }
 
   footer.style.display = 'flex';
@@ -1027,10 +1102,36 @@ function projectField(task) {
   sel.addEventListener('change', () => {
     if (sel.value === '__new__') {
       const id = crypto.randomUUID();
-      projects.set(id, { id, title: 'New project', color: pick(PROJECT_PALETTE) });
+      projects.set(id, { id, title: 'New project', color: pick(PROJECT_PALETTE), zOffset: 0 });
       task.projectId = id;
     } else {
       task.projectId = sel.value || null;
+    }
+    refreshActiveWorld(); save(); scheduleHistorySnapshot(true); renderSidebar();
+  });
+  f.appendChild(sel);
+  return f;
+}
+
+// Dropdown on a person to set their group (or create a new one).
+function groupField(person) {
+  const f = document.createElement('div'); f.className = 'field';
+  const l = document.createElement('label'); l.textContent = 'Group'; f.appendChild(l);
+  const sel = document.createElement('select');
+  const none = document.createElement('option'); none.value = ''; none.textContent = '— none —'; sel.appendChild(none);
+  for (const g of peopleGroups.values()) {
+    const opt = document.createElement('option'); opt.value = g.id; opt.textContent = g.title || 'Untitled';
+    if (person.groupId === g.id) opt.selected = true;
+    sel.appendChild(opt);
+  }
+  const newOpt = document.createElement('option'); newOpt.value = '__new__'; newOpt.textContent = '+ New group…'; sel.appendChild(newOpt);
+  sel.addEventListener('change', () => {
+    if (sel.value === '__new__') {
+      const id = crypto.randomUUID();
+      peopleGroups.set(id, { id, title: 'New group', color: pick(PROJECT_PALETTE), zOffset: 0 });
+      person.groupId = id;
+    } else {
+      person.groupId = sel.value || null;
     }
     refreshActiveWorld(); save(); scheduleHistorySnapshot(true); renderSidebar();
   });
@@ -1080,6 +1181,8 @@ const tmpVec = new THREE.Vector3();
 let downPos = null, moved = false;
 let pendingAssign = null;     // {payload} from a 3D mini box, not yet started
 let pendingSelect = null;     // {kind,id} to select on click (no move)
+let pendingMove = null;       // a big card OR container box that may be dragged
+let moveOp = null;            // active reposition drag (type:'card'|'container')
 let assignDrag = null;        // active drag: {payload, ghost}
 
 function setPointer(ev) {
@@ -1087,19 +1190,41 @@ function setPointer(ev) {
   pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
   pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
 }
-function pickAt(ev) {
+// Cards/labels are Groups (front + mirrored back), so raycast recursively and climb
+// to the ancestor that carries userData.
+function resolveBoardObj(obj) {
+  while (obj && !(obj.userData && (obj.userData.kind || obj.userData.groupKey))) obj = obj.parent;
+  return obj || null;
+}
+function pickHit(ev) {
   setPointer(ev);
   raycaster.setFromCamera(pointer, camera);
-  const hits = raycaster.intersectObjects(boardPickables, false);
-  return hits.length ? hits[0].object.userData : null;
+  const hits = raycaster.intersectObjects(boardPickables, true);
+  for (const h of hits) {
+    const o = resolveBoardObj(h.object);
+    if (o) return { object: o, point: h.point };
+  }
+  return null;
 }
+function pickAt(ev) { const h = pickHit(ev); return h ? h.object.userData : null; }
 function pickBigCardAt(ev) {
   setPointer(ev);
   raycaster.setFromCamera(pointer, camera);
-  const hits = raycaster.intersectObjects(boardPickables, false);
+  const hits = raycaster.intersectObjects(boardPickables, true);
   for (const hit of hits) {
-    const ud = hit.object.userData;
-    if (ud.kind === 'person' || ud.kind === 'task') return ud;
+    const o = resolveBoardObj(hit.object);
+    if (o && (o.userData.kind === 'person' || o.userData.kind === 'task')) return o.userData;
+  }
+  return null;
+}
+// First container (project/group) under the cursor, seen through cards in front.
+function pickContainerAt(ev) {
+  setPointer(ev);
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(boardPickables, true);
+  for (const hit of hits) {
+    const o = resolveBoardObj(hit.object);
+    if (o && (o.userData.kind === 'project' || o.userData.kind === 'group')) return o.userData;
   }
   return null;
 }
@@ -1107,14 +1232,30 @@ function pickBigCardAt(ev) {
 renderer.domElement.addEventListener('pointerdown', (ev) => {
   if (ev.button !== 0) return;
   downPos = { x: ev.clientX, y: ev.clientY }; moved = false;
-  pendingAssign = null; pendingSelect = null;
-  const ud = pickAt(ev);
+  pendingAssign = null; pendingSelect = null; pendingMove = null;
+  const hit = pickHit(ev);
+  const ud = hit ? hit.object.userData : null;
   if (ud && ud.kind === 'assign') {
     pendingAssign = { payload: { kind: ud.miniKind, id: ud.id, origin: { taskId: ud.taskId, personId: ud.personId } } };
     pendingSelect = { kind: ud.miniKind, id: ud.id };
     controls.enabled = false; // suppress orbit until we know it's a click vs drag
-  } else if (ud && (ud.kind === 'person' || ud.kind === 'task' || ud.kind === 'achievement' || ud.kind === 'project')) {
+  } else if (ud && (ud.kind === 'person' || ud.kind === 'task' || ud.kind === 'achievement')) {
+    // a big card: select on click, reposition on drag
     pendingSelect = { kind: ud.kind, id: ud.id };
+    pendingMove = { type: 'card', kind: ud.kind, id: ud.id, mesh: hit.object };
+    controls.enabled = false;
+    // cards move on the ground plane (X/Z) at a fixed altitude
+    dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0));
+    if (raycaster.ray.intersectPlane(dragPlane, dragPoint)) dragOffset.set(hit.object.position.x - dragPoint.x, 0, hit.object.position.z - dragPoint.z);
+    else dragOffset.set(0, 0, 0);
+  } else if (ud && (ud.kind === 'project' || ud.kind === 'group')) {
+    // a container box: select on click, move the whole group on drag
+    pendingSelect = { kind: ud.kind, id: ud.id };
+    pendingMove = { type: 'container', kind: ud.kind, id: ud.id, groupKey: ud.id };
+    controls.enabled = false;
+    // boxes move along the GROUND plane (X across, Z in depth) — altitude stays fixed
+    dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0));
+    pendingMove.start = raycaster.ray.intersectPlane(dragPlane, dragPoint) ? { x: dragPoint.x, z: dragPoint.z } : { x: 0, z: 0 };
   } else {
     pendingSelect = null;
   }
@@ -1125,19 +1266,68 @@ window.addEventListener('pointermove', (ev) => {
     const dx = ev.clientX - downPos.x, dy = ev.clientY - downPos.y;
     if (dx * dx + dy * dy > 16) moved = true;
   }
+  if (pendingMove && moved && !moveOp && !assignDrag) {
+    moveOp = pendingMove;
+    if (moveOp.type === 'container') {
+      moveOp.items = boardObjects.filter(o => o.userData && o.userData.groupKey === moveOp.groupKey).map(o => ({ o, ox: o.position.x, oz: o.position.z }));
+      moveOp.dx = 0; moveOp.dz = 0;
+    }
+  }
+  if (moveOp) {
+    setPointer(ev); raycaster.setFromCamera(pointer, camera);
+    if (raycaster.ray.intersectPlane(dragPlane, dragPoint)) {
+      if (moveOp.type === 'card') {
+        moveOp._nx = snap(dragPoint.x + dragOffset.x);
+        moveOp._nz = snap(dragPoint.z + dragOffset.z);
+        moveOp.mesh.position.x = moveOp._nx;
+        moveOp.mesh.position.z = moveOp._nz;
+      } else {
+        // ground move: shift X and Z only — Y (altitude) is never touched
+        moveOp.dx = snap(dragPoint.x - moveOp.start.x);
+        moveOp.dz = snap(dragPoint.z - moveOp.start.z);
+        for (const it of moveOp.items) { it.o.position.x = it.ox + moveOp.dx; it.o.position.z = it.oz + moveOp.dz; }
+      }
+    }
+    return;
+  }
   if (pendingAssign && moved && !assignDrag) startAssignDrag(pendingAssign.payload, ev);
   if (assignDrag) positionGhost(ev);
 });
 
 window.addEventListener('pointerup', (ev) => {
-  if (assignDrag) {
+  if (moveOp && moveOp.type === 'card') {
+    const ent = entityFor({ type: moveOp.kind, id: moveOp.id });
+    if (ent) {
+      let reassigned = false;
+      // dropping onto another container box reassigns (move between groups/projects)
+      if (currentWorld === 'tasks' && groupTasks && moveOp.kind === 'task') {
+        const c = pickContainerAt(ev);
+        if (c && c.kind === 'project' && ent.projectId !== c.id) { ent.projectId = c.id; ent.pos = null; reassigned = true; }
+      } else if (currentWorld === 'people' && groupPeople && moveOp.kind === 'person') {
+        const c = pickContainerAt(ev);
+        if (c && c.kind === 'group' && ent.groupId !== c.id) { ent.groupId = c.id; ent.pos = null; reassigned = true; }
+      }
+      if (!reassigned && moveOp._nx !== undefined) ent.pos = { x: moveOp._nx, z: moveOp._nz };
+    }
+    refreshActiveWorld(); save(); scheduleHistorySnapshot(true);
+  } else if (moveOp && moveOp.type === 'container') {
+    // the whole group slides on the ground (X/Z); each member keeps its altitude
+    for (const it of moveOp.items) {
+      const ud = it.o.userData;
+      if (ud && (ud.kind === 'person' || ud.kind === 'task' || ud.kind === 'achievement')) {
+        const ent = entityFor({ type: ud.kind, id: ud.id });
+        if (ent) ent.pos = { x: it.o.position.x, z: it.o.position.z };
+      }
+    }
+    refreshActiveWorld(); save(); scheduleHistorySnapshot(true);
+  } else if (assignDrag) {
     finishAssignDrag(ev);
   } else if (!moved && downPos) {
     if (pendingSelect) select(pendingSelect.kind, pendingSelect.id);
     else if (overCanvas(ev)) select(null);
   }
   controls.enabled = true;
-  downPos = null; pendingAssign = null; pendingSelect = null; moved = false;
+  downPos = null; pendingAssign = null; pendingSelect = null; pendingMove = null; moveOp = null; moved = false;
 });
 
 function overCanvas(ev) {
@@ -1216,8 +1406,11 @@ function updateWorldUI() {
   else if (currentWorld === 'tasks') { primary.textContent = '+ Task'; palTitle.textContent = 'Unassigned people'; palBtn.textContent = '+ Person'; }
   else { primary.textContent = '+ Achievement'; }
   const groupBtn = document.getElementById('group-toggle-btn');
-  groupBtn.textContent = `Group: ${groupTasks ? 'On' : 'Off'}`;
-  groupBtn.classList.toggle('on', groupTasks);
+  const addContainerBtn = document.getElementById('add-project-btn');
+  const on = currentWorld === 'people' ? groupPeople : groupTasks;
+  groupBtn.textContent = `Group: ${on ? 'On' : 'Off'}`;
+  groupBtn.classList.toggle('on', on);
+  addContainerBtn.textContent = currentWorld === 'people' ? '+ Group' : '+ Project';
 }
 
 function setWorld(world) {
@@ -1245,21 +1438,33 @@ document.getElementById('add-palette-btn').addEventListener('click', () => {
   if (currentWorld === 'people') addTask({});
   else if (currentWorld === 'tasks') addPerson({});
 });
-document.getElementById('add-project-btn').addEventListener('click', () => { addProject({}); });
+document.getElementById('add-project-btn').addEventListener('click', () => {
+  if (currentWorld === 'people') addGroup({}); else addProject({});
+});
 document.getElementById('group-toggle-btn').addEventListener('click', () => {
-  groupTasks = !groupTasks;
+  if (currentWorld === 'people') groupPeople = !groupPeople; else groupTasks = !groupTasks;
   updateWorldUI();
   refreshActiveWorld();
   fitCamera();
   save(); scheduleHistorySnapshot(true);
 });
 document.getElementById('focus-btn').addEventListener('click', () => { fitCamera(); });
+function autoFit() {
+  for (const p of people.values()) p.pos = null;
+  for (const t of tasks.values()) t.pos = null;
+  for (const a of achievements.values()) a.pos = null;
+  for (const pr of projects.values()) pr.pos = null;
+  for (const g of peopleGroups.values()) g.pos = null;
+  refreshActiveWorld(); fitCamera(); save(); scheduleHistorySnapshot(true);
+}
+document.getElementById('auto-fit-btn').addEventListener('click', autoFit);
 document.getElementById('delete-btn').addEventListener('click', () => {
   if (!selection) return;
   if (selection.type === 'person') deletePerson(selection.id);
   else if (selection.type === 'task') deleteTask(selection.id);
   else if (selection.type === 'achievement') deleteAchievement(selection.id);
   else if (selection.type === 'project') deleteProject(selection.id);
+  else if (selection.type === 'group') deleteGroup(selection.id);
 });
 
 document.addEventListener('keydown', (ev) => {
@@ -1288,11 +1493,12 @@ let isApplyingHistory = false;
 function buildStateData() {
   return {
     savedAt: new Date().toISOString(),
-    currentWorld, groupTasks,
-    people: [...people.values()].map(p => ({ id: p.id, firstName: p.firstName, lastName: p.lastName, jobTitle: p.jobTitle, rank: p.rank, description: p.description, color: p.color, showJobTitle: p.showJobTitle, showRank: p.showRank, showDescription: p.showDescription })),
-    tasks: [...tasks.values()].map(t => ({ id: t.id, title: t.title, description: t.description, color: t.color, assigneeIds: t.assigneeIds, projectId: t.projectId || null, showDescription: t.showDescription })),
-    projects: [...projects.values()].map(p => ({ id: p.id, title: p.title, color: p.color })),
-    achievements: [...achievements.values()].map(a => ({ id: a.id, title: a.title, description: a.description, color: a.color, showDescription: a.showDescription })),
+    currentWorld, groupTasks, groupPeople,
+    people: [...people.values()].map(p => ({ id: p.id, firstName: p.firstName, lastName: p.lastName, jobTitle: p.jobTitle, rank: p.rank, description: p.description, color: p.color, showJobTitle: p.showJobTitle, showRank: p.showRank, showDescription: p.showDescription, groupId: p.groupId || null, pos: p.pos || null })),
+    tasks: [...tasks.values()].map(t => ({ id: t.id, title: t.title, description: t.description, color: t.color, assigneeIds: t.assigneeIds, projectId: t.projectId || null, showDescription: t.showDescription, pos: t.pos || null })),
+    projects: [...projects.values()].map(p => ({ id: p.id, title: p.title, color: p.color, zOffset: p.zOffset || 0 })),
+    peopleGroups: [...peopleGroups.values()].map(g => ({ id: g.id, title: g.title, color: g.color, zOffset: g.zOffset || 0 })),
+    achievements: [...achievements.values()].map(a => ({ id: a.id, title: a.title, description: a.description, color: a.color, showDescription: a.showDescription, pos: a.pos || null })),
   };
 }
 
@@ -1327,7 +1533,7 @@ function load() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return false;
     const data = JSON.parse(raw);
-    const empty = (data.people || []).length === 0 && (data.tasks || []).length === 0 && (data.achievements || []).length === 0 && (data.projects || []).length === 0;
+    const empty = (data.people || []).length === 0 && (data.tasks || []).length === 0 && (data.achievements || []).length === 0 && (data.projects || []).length === 0 && (data.peopleGroups || []).length === 0;
     if (empty) return false;
     applyStateData(data);
     return true;
@@ -1336,38 +1542,45 @@ function load() {
 
 function clearAll() {
   disposeBoard();
-  people.clear(); tasks.clear(); achievements.clear(); projects.clear();
+  people.clear(); tasks.clear(); achievements.clear(); projects.clear(); peopleGroups.clear();
   selection = null;
 }
 
 function applyStateData(data) {
   clearAll();
+  for (const g of (data.peopleGroups || [])) {
+    if (!g || !g.id) continue;
+    peopleGroups.set(g.id, { id: g.id, title: g.title || '', color: g.color || pick(PROJECT_PALETTE), zOffset: typeof g.zOffset === 'number' ? g.zOffset : 0 });
+  }
   for (const p of (data.people || [])) {
     if (!p || !p.id) continue;
     let firstName = p.firstName || '', lastName = p.lastName || '';
     if (!firstName && !lastName && p.title) { const parts = p.title.trim().split(/\s+/); firstName = parts.shift() || ''; lastName = parts.join(' '); }
+    const groupId = (p.groupId && peopleGroups.has(p.groupId)) ? p.groupId : null;
     people.set(p.id, {
       id: p.id, firstName, lastName, jobTitle: p.jobTitle || '', rank: p.rank || '',
       description: p.description || '', color: p.color || pick(PERSON_PALETTE),
       showJobTitle: p.showJobTitle !== false, showRank: p.showRank !== false, showDescription: !!p.showDescription,
+      groupId, pos: validPos(p.pos),
     });
   }
   for (const pr of (data.projects || [])) {
     if (!pr || !pr.id) continue;
-    projects.set(pr.id, { id: pr.id, title: pr.title || '', color: pr.color || pick(PROJECT_PALETTE) });
+    projects.set(pr.id, { id: pr.id, title: pr.title || '', color: pr.color || pick(PROJECT_PALETTE), zOffset: typeof pr.zOffset === 'number' ? pr.zOffset : 0 });
   }
   for (const t of (data.tasks || [])) {
     if (!t || !t.id) continue;
     const assigneeIds = (t.assigneeIds || []).filter(id => people.has(id));
     const projectId = (t.projectId && projects.has(t.projectId)) ? t.projectId : null;
-    tasks.set(t.id, { id: t.id, title: t.title || '', description: t.description || '', color: t.color || pick(TASK_PALETTE), assigneeIds, projectId, showDescription: !!t.showDescription });
+    tasks.set(t.id, { id: t.id, title: t.title || '', description: t.description || '', color: t.color || pick(TASK_PALETTE), assigneeIds, projectId, showDescription: !!t.showDescription, pos: validPos(t.pos) });
   }
   for (const a of (data.achievements || [])) {
     if (!a || !a.id) continue;
-    achievements.set(a.id, { id: a.id, title: a.title || '', description: a.description || '', color: a.color || pick(ACH_PALETTE), showDescription: !!a.showDescription });
+    achievements.set(a.id, { id: a.id, title: a.title || '', description: a.description || '', color: a.color || pick(ACH_PALETTE), showDescription: !!a.showDescription, pos: validPos(a.pos) });
   }
   if (WORLDS.includes(data.currentWorld)) currentWorld = data.currentWorld;
   groupTasks = !!data.groupTasks;
+  groupPeople = !!data.groupPeople;
   applyTheme();
   updateWorldUI();
   refreshActiveWorld();
@@ -1433,7 +1646,7 @@ function getBackupInfo(n) {
   if (!raw) return null;
   try {
     const d = JSON.parse(raw);
-    const count = (d.people?.length || 0) + (d.tasks?.length || 0) + (d.achievements?.length || 0) + (d.projects?.length || 0);
+    const count = (d.people?.length || 0) + (d.tasks?.length || 0) + (d.achievements?.length || 0) + (d.projects?.length || 0) + (d.peopleGroups?.length || 0);
     return { n, ts: d.savedAt, count, raw };
   } catch (e) { return null; }
 }
@@ -1603,9 +1816,11 @@ if (autosaveBtn) {
 restoreAutosaveOnLoad();
 
 if (!load()) {
+  const computing = addGroup({ title: 'Computing' });
   const ada = addPerson({ firstName: 'Ada', lastName: 'Lovelace', jobTitle: 'Mathematician', rank: 'Lead', description: 'First computer programmer.' });
   const grace = addPerson({ firstName: 'Grace', lastName: 'Hopper', jobTitle: 'Rear Admiral', rank: 'Officer', description: 'Compiler pioneer.' });
   addPerson({ firstName: 'Margaret', lastName: 'Hamilton', jobTitle: 'Director of Software', rank: 'Lead', description: 'Apollo flight software.' });
+  ada.groupId = computing.id; grace.groupId = computing.id;
   const launch = addProject({ title: 'Launch' });
   const research = addProject({ title: 'Research' });
   addTask({ title: 'Design data schema', assigneeIds: [ada.id], projectId: launch.id });
