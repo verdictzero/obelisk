@@ -118,6 +118,8 @@
   }
   .chip:hover { border-color: var(--accent); }
   .chip:active { cursor: grabbing; }
+  .chip.assigned { opacity: 0.5; }          /* already linked somewhere — still draggable onto more */
+  .chip.assigned:hover { opacity: 1; }
   .chip .dot { width: 12px; height: 12px; border-radius: 3px; flex: 0 0 auto; }
   .chip.person .dot { border-radius: 50%; }
   .chip .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -189,6 +191,7 @@
   }
   .link-chip .dot { width: 10px; height: 10px; border-radius: 50%; }
   .link-chip.task .dot { border-radius: 3px; }
+  .link-chip.project .dot { border-radius: 3px; transform: rotate(45deg); }
   .link-chip .x {
     display: inline-flex; align-items: center; justify-content: center;
     width: 16px; height: 16px; border-radius: 50%;
@@ -430,8 +433,10 @@ const WORLD_THEMES = {
 
 // Entity colors are constant across worlds so types stay recognizable:
 // people = blue, tasks = green, achievements = gold.
-const PERSON_PALETTE = ['#2f6fe0', '#4f8cff', '#1f5ad0', '#3a7bd5', '#5aa0ff'];
-const TASK_PALETTE = ['#e5484d', '#f2555a', '#d23b40', '#ff6b6b', '#c0392b'];
+// Wide, varied palettes so randomly-assigned people/task colors are clearly distinct
+// (people lean cool, tasks lean warm, but both span many hues).
+const PERSON_PALETTE = ['#4f8cff', '#5ad1c9', '#9b8cff', '#4ad0ff', '#76e0a8', '#7ed957', '#c98cff', '#ff8cc4', '#5aa0ff', '#3ad1a0'];
+const TASK_PALETTE = ['#e5484d', '#ff9f5c', '#ffd24a', '#f25c8a', '#ff6b6b', '#f0883e', '#ffb454', '#ff7a9c', '#e86b2c', '#ffc34a'];
 const ACH_PALETTE = ['#ffd700', '#ffb84d', '#d4a017', '#daa520', '#e6c200'];
 const PROJECT_PALETTE = ['#b07cff', '#ff9f5c', '#f25c8a', '#5cc8ff', '#ffd24a'];
 
@@ -486,6 +491,9 @@ function unassignedTasks() { return [...tasks.values()].filter(t => t.assigneeId
 function assignedPersonIds() { const s = new Set(); for (const t of tasks.values()) for (const id of t.assigneeIds) s.add(id); return s; }
 function unassignedPeople() { const a = assignedPersonIds(); return [...people.values()].filter(p => !a.has(p.id)); }
 function tasksForProject(pid) { return [...tasks.values()].filter(t => t.projectId === pid); }
+// People <-> Projects is many-to-many via person.projectIds (a person can belong to any number of projects).
+function projectsForPerson(p) { return (p.projectIds || []).map(id => projects.get(id)).filter(Boolean); }
+function peopleForProject(pid) { return [...people.values()].filter(p => (p.projectIds || []).includes(pid)); }
 function ungroupedTasks() { return [...tasks.values()].filter(t => !t.projectId || !projects.has(t.projectId)); }
 function peopleInGroup(gid) { return [...people.values()].filter(p => p.groupId === gid); }
 function grouplessPeople() { return [...people.values()].filter(p => !p.groupId || !peopleGroups.has(p.groupId)); }
@@ -506,7 +514,7 @@ function addPerson({ firstName = '', lastName = '', jobTitle = '', rank = '', de
   if (!firstName && !lastName) firstName = 'New person';
   const id = crypto.randomUUID();
   const p = { id, firstName, lastName, jobTitle, rank, description, color: color || pick(PERSON_PALETTE),
-    showJobTitle: true, showRank: true, showDescription: false, groupId: null, pos: null };
+    showJobTitle: true, showRank: true, showDescription: false, groupId: null, projectIds: [], pos: null };
   people.set(id, p);
   refreshActiveWorld(); updatePalette();
   select('person', id); save(); scheduleHistorySnapshot(true);
@@ -530,6 +538,7 @@ function addProject({ title = 'New project', color } = {}) {
 }
 function deleteProject(id) {
   for (const t of tasks.values()) if (t.projectId === id) t.projectId = null;
+  for (const p of people.values()) if (p.projectIds) p.projectIds = p.projectIds.filter(x => x !== id);
   projects.delete(id);
   if (isSelected('project', id)) select(null);
   refreshActiveWorld(); save(); scheduleHistorySnapshot(true);
@@ -687,7 +696,7 @@ function paintMini(ctx, title, accent, card, kind, selected) {
 const NODE_ALTITUDE = 2.0;
 // A card = front plane + a back plane whose texture is horizontally mirrored, so the
 // text reads correctly from both sides. Returned `mesh` is a Group (front + back).
-function makeTexturedPlane(w, h, canvas) {
+function makeTexturedPlane(w, h, canvas, depth = 0, edgeColor = '#1f262f') {
   const aniso = renderer.capabilities.getMaxAnisotropy();
   const front = new THREE.CanvasTexture(canvas);
   front.anisotropy = aniso; front.colorSpace = THREE.SRGBColorSpace;
@@ -696,8 +705,18 @@ function makeTexturedPlane(w, h, canvas) {
   back.wrapS = THREE.RepeatWrapping; back.repeat.x = -1; back.offset.x = 1; // mirror → readable from behind
   const geo = new THREE.PlaneGeometry(w, h);
   const group = new THREE.Group();
-  group.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: front, transparent: true, side: THREE.FrontSide })));
-  group.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: back, transparent: true, side: THREE.BackSide })));
+  // depth > 0 extrudes the card into a slab: textured front/back faces pushed out
+  // to ±depth/2 with a solid colored core filling the thickness (edges = edgeColor).
+  const faceZ = depth > 0 ? depth / 2 + 0.01 : 0;
+  const fm = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: front, transparent: true, side: THREE.FrontSide }));
+  const bm = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: back, transparent: true, side: THREE.BackSide }));
+  fm.position.z = faceZ; bm.position.z = -faceZ;
+  group.add(fm); group.add(bm);
+  if (depth > 0) {
+    const core = new THREE.Mesh(new THREE.BoxGeometry(w, h, depth),
+      new THREE.MeshBasicMaterial({ color: edgeColor }));
+    group.add(core);
+  }
   return { mesh: group, texture: front };
 }
 // ============================================================
@@ -707,6 +726,9 @@ function makeTexturedPlane(w, h, canvas) {
 // arranged in a grid: X = columns, Z = rows going back. Minis stack behind (−Z).
 const PW = 3.2, PH = 1.8;
 const MW = 1.5, MH = 0.6;
+const BIG_DEPTH = 0.32;            // big-card thickness (extruded slab) in People + Tasks worlds
+const MINI_DEPTH = 0.16;           // thickness of the mini cards stacked on a big card
+const PEOPLE_COLS = 5;             // People world lays out 5 cards wide, then rows go back (−Z)
 const COL_OFF = 0.85;              // mini column x offset from card center
 const CELL_X = PW + 1.6;           // column pitch (X)
 const STAND_Y = PH / 2;            // uniform card-center altitude (bottom on ground)
@@ -762,7 +784,12 @@ function placeEntry(e, x, frontZ, groupKey) {
   if (e.kind === 'person') paintPersonBig(bigCanvas.getContext('2d'), e.entity, sel);
   else if (e.kind === 'task') paintTaskBig(bigCanvas.getContext('2d'), e.entity, sel);
   else paintAchievementBig(bigCanvas.getContext('2d'), e.entity, sel);
-  const big = makeTexturedPlane(PW, PH, bigCanvas);
+  const extrude = currentWorld === 'people' || currentWorld === 'tasks'; // 3D depth on big cards + their stacked minis
+  // the big card's own color tints its edges AND the extruded edges of every mini stacked
+  // on it, so a stack reads as belonging to its parent (all people on a task share the
+  // task's edge color; all tasks on a person share the person's edge color).
+  const parentColor = e.entity.color || (e.kind === 'task' ? TASK_PALETTE[0] : PERSON_PALETTE[0]);
+  const big = makeTexturedPlane(PW, PH, bigCanvas, extrude ? BIG_DEPTH : 0, parentColor);
   big.texture.needsUpdate = true;
   big.mesh.position.set(x, STAND_Y, frontZ);
   big.mesh.userData = { kind: e.kind, id: e.entity.id, groupKey };
@@ -779,7 +806,7 @@ function placeEntry(e, x, frontZ, groupKey) {
     const accent = mi.kind === 'person' ? (mi.entity.color || PERSON_PALETTE[0]) : (mi.entity.color || TASK_PALETTE[0]);
     const card = mi.kind === 'person' ? PERSON_CARD : TASK_CARD;
     paintMini(canvas.getContext('2d'), labelOf(mi.kind, mi.entity), accent, card, mi.kind, msel);
-    const mini = makeTexturedPlane(MW, MH, canvas);
+    const mini = makeTexturedPlane(MW, MH, canvas, extrude ? MINI_DEPTH : 0, parentColor); // edges = parent's color
     mini.texture.needsUpdate = true;
     mini.mesh.position.set(mx, my, frontZ + 0.02);
     mini.mesh.userData = { kind: 'assign', miniKind: mi.kind, id: mi.entity.id, taskId: mi.taskId, personId: mi.personId, groupKey };
@@ -791,10 +818,10 @@ function placeEntry(e, x, frontZ, groupKey) {
 
 // Lay entries into a grid on the ground (X columns, −Z rows) starting at frontZ.
 // singleRow=true puts them all in one aligned row along X (for free/ungrouped cards).
-function layoutGrid(entries, frontZ, groupKey, singleRow, originX = 0) {
+function layoutGrid(entries, frontZ, groupKey, singleRow, originX = 0, colsOverride = 0) {
   const n = entries.length;
   if (n === 0) return { minX: originX - PW / 2, maxX: originX + PW / 2, minZ: frontZ - 1, maxZ: frontZ + 1, maxY: PH };
-  const cols = singleRow ? n : Math.ceil(Math.sqrt(n));
+  const cols = singleRow ? n : (colsOverride > 0 ? Math.min(colsOverride, n) : Math.ceil(Math.sqrt(n)));
   const rowDepth = ROW_GAP_Z; // minis stack up now, so rows only need card spacing in Z
   let b = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity, maxY: -Infinity };
   entries.forEach((e, i) => {
@@ -814,6 +841,9 @@ function buildBoard() {
   disposeBoard();
   if (currentWorld === 'tasks' && groupTasks) { buildGrouped(tasksGroupConfig()); return; }
   if (currentWorld === 'people' && groupPeople) { buildGrouped(peopleGroupConfig()); return; }
+  // People default to a fixed-width grid (PEOPLE_COLS wide, rows go back); other
+  // worlds keep the free single aligned row.
+  if (currentWorld === 'people') { boardBounds = layoutGrid(boardEntries(), 0, undefined, false, 0, PEOPLE_COLS); return; }
   boardBounds = layoutGrid(boardEntries(), 0, undefined, true); // free cards → single aligned row
 }
 
@@ -845,11 +875,13 @@ function buildGrouped(cfg) {
   for (const c of cfg.containers) groups.push({ container: c, members: cfg.membersOf(c.id) });
   if (groups.length === 0) { boardBounds = { minX: -PW, maxX: PW, minZ: -1, maxZ: 1, maxY: PH }; return; }
 
+  // people member boxes use a fixed PEOPLE_COLS-wide grid; tasks keep the square-ish grid
+  const memberCols = cfg.memberKind === 'person' ? PEOPLE_COLS : 0;
   // arrange the group boxes themselves into a grid (a box), not a single line
   const estimate = g => {
     const n = g.members.length;
     const singleRow = g.container === null;
-    const cols = n === 0 ? 1 : (singleRow ? n : Math.ceil(Math.sqrt(n)));
+    const cols = n === 0 ? 1 : (singleRow ? n : (memberCols > 0 ? Math.min(memberCols, n) : Math.ceil(Math.sqrt(n))));
     const rows = n === 0 ? 1 : Math.ceil(n / cols);
     return { w: cols * CELL_X, depth: (rows - 1) * ROW_GAP_Z + PW + 1 };
   };
@@ -865,7 +897,7 @@ function buildGrouped(cfg) {
     const frontZ = -gr * cellD;
     const groupKey = g.container ? g.container.id : '__ungrouped_' + gi;
     const entries = g.members.map(e => ({ kind: cfg.memberKind, entity: e, minis: cfg.minisOf(e) }));
-    const gb = layoutGrid(entries, frontZ, groupKey, g.container === null, originX); // free group → single row
+    const gb = layoutGrid(entries, frontZ, groupKey, g.container === null, originX, memberCols); // free group → single row
     addGroupBox(g.container, gb, cfg.containerKind, cfg.ungroupedLabel, groupKey);
     B.minX = Math.min(B.minX, gb.minX - GROUP_PAD); B.maxX = Math.max(B.maxX, gb.maxX + GROUP_PAD);
     B.minZ = Math.min(B.minZ, gb.minZ - GROUP_PAD); B.maxZ = Math.max(B.maxZ, gb.maxZ + GROUP_PAD);
@@ -938,19 +970,22 @@ const paletteStrip = document.getElementById('palette-strip');
 function updatePalette() {
   paletteStrip.innerHTML = '';
   if (currentWorld === 'achievements') return;
+  // Show ALL tasks/people (not just unassigned) so an entity can be dragged onto many
+  // targets — it never disappears from the palette after its first assignment.
+  const assignedP = assignedPersonIds();
   const items = currentWorld === 'people'
-    ? unassignedTasks().map(t => ({ kind: 'task', entity: t }))
-    : unassignedPeople().map(p => ({ kind: 'person', entity: p }));
+    ? [...tasks.values()].map(t => ({ kind: 'task', entity: t, assigned: t.assigneeIds.length > 0 }))
+    : [...people.values()].map(p => ({ kind: 'person', entity: p, assigned: assignedP.has(p.id) }));
   if (items.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'palette-empty';
-    empty.textContent = currentWorld === 'people' ? 'No unassigned tasks.' : 'No unassigned people.';
+    empty.textContent = currentWorld === 'people' ? 'No tasks yet.' : 'No people yet.';
     paletteStrip.appendChild(empty);
     return;
   }
   for (const it of items) {
     const chip = document.createElement('div');
-    chip.className = 'chip ' + it.kind;
+    chip.className = 'chip ' + it.kind + (it.assigned ? ' assigned' : '');
     const accent = it.kind === 'person' ? (it.entity.color || PERSON_PALETTE[0]) : (it.entity.color || TASK_PALETTE[0]);
     chip.innerHTML = `<span class="dot" style="background:${accent}"></span><span class="label"></span>`;
     chip.querySelector('.label').textContent = labelOf(it.kind, it.entity);
@@ -1053,6 +1088,11 @@ function renderSidebar() {
       tid => { const t = tasks.get(tid); if (t) t.assigneeIds = t.assigneeIds.filter(x => x !== ent.id); afterLinkChange(); },
       [...tasks.values()].filter(t => !t.assigneeIds.includes(ent.id)),
       tid => { const t = tasks.get(tid); if (t) t.assigneeIds.push(ent.id); afterLinkChange(); }));
+    body.appendChild(linkSection('Projects', projectsForPerson(ent), 'project',
+      pid => { ent.projectIds = (ent.projectIds || []).filter(x => x !== pid); afterLinkChange(); },
+      [...projects.values()].filter(pr => !(ent.projectIds || []).includes(pr.id)),
+      pid => { (ent.projectIds || (ent.projectIds = [])).push(pid); afterLinkChange(); },
+      () => { const id = crypto.randomUUID(); projects.set(id, { id, title: 'New project', color: pick(PROJECT_PALETTE), zOffset: 0 }); (ent.projectIds || (ent.projectIds = [])).push(id); afterLinkChange(); }));
     footer.style.display = 'flex';
     return;
   }
@@ -1073,6 +1113,10 @@ function renderSidebar() {
       tid => { const t = tasks.get(tid); if (t) t.projectId = null; afterLinkChange(); },
       [...tasks.values()].filter(t => t.projectId !== ent.id),
       tid => { const t = tasks.get(tid); if (t) t.projectId = ent.id; afterLinkChange(); }));
+    body.appendChild(linkSection('People in project', peopleForProject(ent.id), 'person',
+      pid => { const p = people.get(pid); if (p) p.projectIds = (p.projectIds || []).filter(x => x !== ent.id); afterLinkChange(); },
+      [...people.values()].filter(p => !(p.projectIds || []).includes(ent.id)),
+      pid => { const p = people.get(pid); if (p) (p.projectIds || (p.projectIds = [])).push(ent.id); afterLinkChange(); }));
   } else if (type === 'group') {
     body.appendChild(linkSection('People in group', peopleInGroup(ent.id), 'person',
       pid => { const p = people.get(pid); if (p) p.groupId = null; afterLinkChange(); },
@@ -1139,7 +1183,7 @@ function groupField(person) {
   return f;
 }
 
-function linkSection(label, linkedEntities, linkKind, onRemove, addable, onAdd) {
+function linkSection(label, linkedEntities, linkKind, onRemove, addable, onAdd, onCreate) {
   const f = document.createElement('div'); f.className = 'field';
   const l = document.createElement('label'); l.textContent = label; f.appendChild(l);
   const row = document.createElement('div'); row.className = 'link-row';
@@ -1158,11 +1202,13 @@ function linkSection(label, linkedEntities, linkKind, onRemove, addable, onAdd) 
     row.appendChild(chip);
   }
   f.appendChild(row);
-  if (addable.length > 0) {
+  if (addable.length > 0 || onCreate) {
     const sel = document.createElement('select');
-    sel.innerHTML = `<option value="">+ add ${linkKind}…</option>` + addable.map(e => `<option value="${e.id}"></option>`).join('');
-    [...sel.options].forEach((opt, i) => { if (i > 0) opt.textContent = labelOf(linkKind, addable[i - 1]); });
-    sel.addEventListener('change', () => { if (sel.value) onAdd(sel.value); });
+    let html = `<option value="">+ add ${linkKind}…</option>` + addable.map(e => `<option value="${e.id}"></option>`).join('');
+    if (onCreate) html += `<option value="__new__">+ New ${linkKind}…</option>`;
+    sel.innerHTML = html;
+    [...sel.options].forEach((opt, i) => { if (i > 0 && i <= addable.length) opt.textContent = labelOf(linkKind, addable[i - 1]); });
+    sel.addEventListener('change', () => { if (sel.value === '__new__') onCreate(); else if (sel.value) onAdd(sel.value); });
     f.appendChild(sel);
   }
   return f;
@@ -1402,8 +1448,8 @@ function updateWorldUI() {
   const primary = document.getElementById('add-primary-btn');
   const palTitle = document.getElementById('palette-title');
   const palBtn = document.getElementById('add-palette-btn');
-  if (currentWorld === 'people') { primary.textContent = '+ Person'; palTitle.textContent = 'Unassigned tasks'; palBtn.textContent = '+ Task'; }
-  else if (currentWorld === 'tasks') { primary.textContent = '+ Task'; palTitle.textContent = 'Unassigned people'; palBtn.textContent = '+ Person'; }
+  if (currentWorld === 'people') { primary.textContent = '+ Person'; palTitle.textContent = 'Tasks'; palBtn.textContent = '+ Task'; }
+  else if (currentWorld === 'tasks') { primary.textContent = '+ Task'; palTitle.textContent = 'People'; palBtn.textContent = '+ Person'; }
   else { primary.textContent = '+ Achievement'; }
   const groupBtn = document.getElementById('group-toggle-btn');
   const addContainerBtn = document.getElementById('add-project-btn');
@@ -1483,7 +1529,7 @@ document.addEventListener('keydown', (ev) => {
 // ============================================================
 // Persistence (localStorage + backups)
 // ============================================================
-const STORAGE_KEY = 'obelisk.v5';
+const STORAGE_KEY = 'obelisk.v7';
 const BACKUP_KEYS = [STORAGE_KEY + '.bak.1', STORAGE_KEY + '.bak.2', STORAGE_KEY + '.bak.3'];
 const BACKUP_MIN_INTERVAL_MS = 10000;
 let saveTimer = null;
@@ -1494,7 +1540,7 @@ function buildStateData() {
   return {
     savedAt: new Date().toISOString(),
     currentWorld, groupTasks, groupPeople,
-    people: [...people.values()].map(p => ({ id: p.id, firstName: p.firstName, lastName: p.lastName, jobTitle: p.jobTitle, rank: p.rank, description: p.description, color: p.color, showJobTitle: p.showJobTitle, showRank: p.showRank, showDescription: p.showDescription, groupId: p.groupId || null, pos: p.pos || null })),
+    people: [...people.values()].map(p => ({ id: p.id, firstName: p.firstName, lastName: p.lastName, jobTitle: p.jobTitle, rank: p.rank, description: p.description, color: p.color, showJobTitle: p.showJobTitle, showRank: p.showRank, showDescription: p.showDescription, groupId: p.groupId || null, projectIds: p.projectIds || [], pos: p.pos || null })),
     tasks: [...tasks.values()].map(t => ({ id: t.id, title: t.title, description: t.description, color: t.color, assigneeIds: t.assigneeIds, projectId: t.projectId || null, showDescription: t.showDescription, pos: t.pos || null })),
     projects: [...projects.values()].map(p => ({ id: p.id, title: p.title, color: p.color, zOffset: p.zOffset || 0 })),
     peopleGroups: [...peopleGroups.values()].map(g => ({ id: g.id, title: g.title, color: g.color, zOffset: g.zOffset || 0 })),
@@ -1561,13 +1607,15 @@ function applyStateData(data) {
       id: p.id, firstName, lastName, jobTitle: p.jobTitle || '', rank: p.rank || '',
       description: p.description || '', color: p.color || pick(PERSON_PALETTE),
       showJobTitle: p.showJobTitle !== false, showRank: p.showRank !== false, showDescription: !!p.showDescription,
-      groupId, pos: validPos(p.pos),
+      groupId, projectIds: Array.isArray(p.projectIds) ? [...p.projectIds] : [], pos: validPos(p.pos),
     });
   }
   for (const pr of (data.projects || [])) {
     if (!pr || !pr.id) continue;
     projects.set(pr.id, { id: pr.id, title: pr.title || '', color: pr.color || pick(PROJECT_PALETTE), zOffset: typeof pr.zOffset === 'number' ? pr.zOffset : 0 });
   }
+  // projects load after people, so prune each person's projectIds to existing projects now
+  for (const p of people.values()) p.projectIds = (p.projectIds || []).filter(id => projects.has(id));
   for (const t of (data.tasks || [])) {
     if (!t || !t.id) continue;
     const assigneeIds = (t.assigneeIds || []).filter(id => people.has(id));
@@ -1816,20 +1864,14 @@ if (autosaveBtn) {
 restoreAutosaveOnLoad();
 
 if (!load()) {
-  const computing = addGroup({ title: 'Computing' });
-  const ada = addPerson({ firstName: 'Ada', lastName: 'Lovelace', jobTitle: 'Mathematician', rank: 'Lead', description: 'First computer programmer.' });
-  const grace = addPerson({ firstName: 'Grace', lastName: 'Hopper', jobTitle: 'Rear Admiral', rank: 'Officer', description: 'Compiler pioneer.' });
-  addPerson({ firstName: 'Margaret', lastName: 'Hamilton', jobTitle: 'Director of Software', rank: 'Lead', description: 'Apollo flight software.' });
-  ada.groupId = computing.id; grace.groupId = computing.id;
-  const launch = addProject({ title: 'Launch' });
-  const research = addProject({ title: 'Research' });
-  addTask({ title: 'Design data schema', assigneeIds: [ada.id], projectId: launch.id });
-  addTask({ title: 'Write the tests', assigneeIds: [ada.id, grace.id], projectId: launch.id });
-  addTask({ title: 'Survey prior art', projectId: research.id });
-  addTask({ title: 'Plan the sprint' }); // unassigned, no project → palette / "No project" box
-  addTask({ title: 'Review the docs' });
-  addAchievement({ title: 'Shipped v1', description: 'The rebuild is live!' });
-  addAchievement({ title: 'First 100 users', description: 'Milestone reached.' });
+  // Real roster: people in CIV and CTR groups, group appended to each name.
+  // Source names are "Last, First"; tasks/achievements intentionally omitted.
+  const civ = addGroup({ title: 'CIV' });
+  const ctr = addGroup({ title: 'CTR' });
+  const CIV = [['Stern','Dakota'],['Lenderking','Taylor'],['Tarantino','Thomas'],['Van Hees','Joshua'],['Dacosta','Jason'],['Hallcox','Samantha'],['Miller','Thomas'],['Reiser','Wesley']];
+  const CTR = [['Beyer','Ryan'],['Brown','Gilbert'],['Wilkes','Eric'],['Madu','Anthony'],['Mengesha','Dagem']];
+  CIV.forEach(([last, first]) => { addPerson({ firstName: `${first} (CIV)`, lastName: last }).groupId = civ.id; });
+  CTR.forEach(([last, first]) => { addPerson({ firstName: `${first} (CTR)`, lastName: last }).groupId = ctr.id; });
   selection = null;
 }
 applyTheme();
